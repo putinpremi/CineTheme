@@ -17,12 +17,22 @@ if (keystorePropertiesFile.exists()) {
     } catch (Exception e) {
         logger.warn("Failed to load keystore.properties: " + e.message)
     }
-} else if (System.getenv("ANDROID_KEYSTORE_FILE") != null) {
-    keystoreProperties['storeFile'] = System.getenv("ANDROID_KEYSTORE_FILE")
-    keystoreProperties['storePassword'] = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-    keystoreProperties['keyAlias'] = System.getenv("ANDROID_KEY_ALIAS")
-    keystoreProperties['keyPassword'] = System.getenv("ANDROID_KEY_PASSWORD")
-    hasReleaseSigning = true
+} else if (System.getenv("ANDROID_KEYSTORE_FILE") && !System.getenv("ANDROID_KEYSTORE_FILE").trim().isEmpty()) {
+    def envStoreFile = System.getenv("ANDROID_KEYSTORE_FILE").trim()
+    def envStoreFileObj = file(envStoreFile)
+    if (!envStoreFileObj.isAbsolute()) {
+        envStoreFileObj = rootProject.file(envStoreFile)
+        if (!envStoreFileObj.exists()) {
+            envStoreFileObj = file(envStoreFile)
+        }
+    }
+    if (envStoreFileObj.exists() && System.getenv("ANDROID_KEYSTORE_PASSWORD") && System.getenv("ANDROID_KEY_ALIAS") && System.getenv("ANDROID_KEY_PASSWORD")) {
+        keystoreProperties['storeFile'] = envStoreFileObj.absolutePath
+        keystoreProperties['storePassword'] = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+        keystoreProperties['keyAlias'] = System.getenv("ANDROID_KEY_ALIAS")
+        keystoreProperties['keyPassword'] = System.getenv("ANDROID_KEY_PASSWORD")
+        hasReleaseSigning = true
+    }
 }
 
 android {
