@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --color-surface-950: #07090E;
+  --color-surface-900: #0B0E14;
+  --color-surface-850: #10141D;
+  --color-surface-800: #161B26;
+  --color-surface-750: #1C2331;
+  --color-surface-700: #242D3F;
+  --color-surface-600: #364259;
+  --color-surface-500: #4B5A77;
+  --color-surface-400: #71809B;
+  --color-surface-300: #9EABBF;
+  --color-surface-200: #CBD4E1;
+  --color-surface-100: #E4E9F2;
+  --color-surface-50: #F3F6FA;
+
+  --color-brand-600: #4338CA;
+  --color-brand-500: #6366F1;
+  --color-brand-400: #818CF8;
+  --color-brand-300: #A5B4FC;
+
+  --color-accent-cyan: #06B6D4;
+  --color-accent-amber: #F59E0B;
+  --color-accent-rose: #F43F5E;
+  --color-accent-emerald: #10B981;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
+}
+
+@layer base {
+  *, ::after, ::before, ::backdrop, ::file-selector-button {
+    border-color: var(--color-surface-700);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-surface-950);
+    color: var(--color-surface-50);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Mobile Safe Area Insets */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pl-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+.pr-safe {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Accessible standard focus ring style */
+.focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-950;
+}
+
+/* =================================================== */
+/* 10-FOOT ANDROID TV PRESENTATION LAYER               */
+/* =================================================== */
+
+.is-tv {
+  font-size: 18px;
+}
+
+.is-tv h1 {
+  font-size: 2.25rem;
+}
+
+.is-tv h2 {
+  font-size: 1.75rem;
+}
+
+.is-tv .tv-overscan-safe {
+  padding-left: max(env(safe-area-inset-left, 0px), 32px);
+  padding-right: max(env(safe-area-inset-right, 0px), 32px);
+}
+
+/* Prominent 10-foot D-pad Focus Ring & Elevation */
+.is-tv *:focus-visible,
+.is-tv [data-focused="true"] {
+  outline: 3px solid #818CF8 !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.45), 0 20px 30px -5px rgba(0, 0, 0, 0.9) !important;
+  transform: scale(1.03) !important;
+  transition: transform 120ms ease, box-shadow 120ms ease, outline 120ms ease !important;
+  z-index: 40 !important;
+}
+
+/* Subtle cinematic scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-700);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-surface-600);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

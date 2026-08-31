@@ -1,0 +1,9 @@
+# CineTheme Robots Policy
+User-agent: *
+Disallow: /player/
+Disallow: /item/
+Disallow: /library
+Disallow: /search
+Disallow: /settings
+Allow: /
+Allow: /login
