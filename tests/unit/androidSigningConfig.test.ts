@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 
 describe('Android Release Signing Configuration & Secrets Protection', () => {
   const rootDir = path.resolve(__dirname, '../..');
@@ -40,12 +41,11 @@ describe('Android Release Signing Configuration & Secrets Protection', () => {
   });
 
   it('does not have real keystore files committed in repository', () => {
-    const rootKeystore = path.join(rootDir, 'release.keystore');
-    const androidKeystore = path.join(rootDir, 'android/release.keystore');
-    const appKeystore = path.join(rootDir, 'android/app/release.keystore');
+    const trackedFiles = execSync('git ls-files', { cwd: rootDir, encoding: 'utf-8' });
 
-    expect(fs.existsSync(rootKeystore)).toBe(false);
-    expect(fs.existsSync(androidKeystore)).toBe(false);
-    expect(fs.existsSync(appKeystore)).toBe(false);
+    expect(trackedFiles).not.toMatch(/\.keystore$/m);
+    expect(trackedFiles).not.toMatch(/\.jks$/m);
+    expect(trackedFiles).not.toMatch(/^keystore\.properties$/m);
+    expect(trackedFiles).not.toMatch(/^android\/keystore\.properties$/m);
   });
 });
