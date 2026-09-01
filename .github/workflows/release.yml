@@ -152,8 +152,8 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
-            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-              echo "::error::ANDROID_KEYSTORE_BASE64 secret is missing! Production release tags require a signed APK."
+            if [[ "$GITHUB_REF" == refs/tags/v* || "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+              echo "::error::ANDROID_KEYSTORE_BASE64 secret is missing! Production release tags and manual validation require a signed APK."
               exit 1
             else
               echo "Warning: ANDROID_KEYSTORE_BASE64 not configured for non-tag build. Continuing in unsigned mode."
@@ -186,9 +186,9 @@ jobs:
             exit 1
           fi
 
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          if [[ "$GITHUB_REF" == refs/tags/v* || "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             if [[ "$APK_SRC" == *"unsigned"* ]]; then
-              echo "::error::Production release MUST NOT be unsigned! assembleRelease produced app-release-unsigned.apk."
+              echo "::error::Signed release APK required! assembleRelease produced app-release-unsigned.apk."
               exit 1
             fi
 
