@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-release
+test-results
+coverage
+android
+src-tauri
+.git
+.github
+.gemini
+*.log
+.env*

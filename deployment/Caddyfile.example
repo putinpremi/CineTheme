@@ -20,3 +20,12 @@ cinetheme.example.com {
     # SPA Routing Fallback
     try_files {path} /index.html
 }
+
+# ==============================================================================
+# ALTERNATIVE: Reverse Proxy Configuration for Docker Deployment
+# ==============================================================================
+# If running CineTheme via Docker (e.g. docker compose up -d on port 8080):
+#
+# cinetheme.example.com {
+#     reverse_proxy 127.0.0.1:8080
+# }

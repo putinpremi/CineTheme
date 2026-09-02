@@ -57,3 +57,24 @@ server {
         try_files $uri $uri/ /index.html;
     }
 }
+
+# ==============================================================================
+# ALTERNATIVE: Reverse Proxy Configuration for Docker Deployment
+# ==============================================================================
+# If running CineTheme via Docker (e.g. docker compose up -d on port 8080):
+#
+# server {
+#     listen 443 ssl http2;
+#     server_name cinetheme.example.com;
+#
+#     ssl_certificate /path/to/fullchain.pem;
+#     ssl_certificate_key /path/to/privkey.pem;
+#
+#     location / {
+#         proxy_pass http://127.0.0.1:8080;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#     }
+# }

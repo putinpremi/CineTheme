@@ -216,10 +216,40 @@ jobs:
           name: cinetheme-android-apk
           path: dist-release/android/*.apk
 
+  validate-selfhost:
+    name: Validate Self-Hosted Web & Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build Web Production Assets (Source Build)
+        run: npm run build
+
+      - name: Build and Validate Docker Container
+        run: |
+          docker build -t cinetheme-ci-test .
+          docker run -d --name cinetheme-ci -p 8088:8080 cinetheme-ci-test
+          sleep 3
+          docker ps | grep cinetheme-ci
+          wget -q -O- http://127.0.0.1:8088/healthz | grep "OK"
+          wget -q -O- http://127.0.0.1:8088/ | grep "CineTheme"
+          docker stop cinetheme-ci && docker rm cinetheme-ci
+
   publish-release:
     name: Publish GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build-windows, build-android]
+    needs: [build-windows, build-android, validate-selfhost]
     runs-on: ubuntu-latest
 
     steps:

@@ -64,6 +64,52 @@ npx cap sync android
 
 ---
 
+## Self-Hosting CineTheme
+
+CineTheme is a client-side Single Page Application (SPA) designed to be self-hosted without requiring a Node.js runtime in production.
+
+### Method 1: Docker (Recommended)
+
+Run CineTheme with Docker Compose:
+
+```bash
+git clone https://github.com/putinpremi/CineTheme.git
+cd CineTheme
+docker compose up -d
+```
+
+The application is now accessible at `http://localhost:8080`.
+To customize the exposed host port, set the `PORT` environment variable (e.g., `PORT=3000 docker compose up -d`).
+
+Or build and run with Docker directly:
+
+```bash
+docker build -t cinetheme .
+docker run -d --name cinetheme -p 8080:8080 cinetheme
+```
+
+### Method 2: Build from Source
+
+Build the production static assets:
+
+```bash
+git clone https://github.com/putinpremi/CineTheme.git
+cd CineTheme
+npm ci
+npm run build
+```
+
+The compiled static assets are located in the `dist/` directory, ready to be served by any web server or static hosting provider.
+
+### Reverse Proxy & Domain Setup
+
+Production configurations with recommended security headers, SPA fallback routing, and asset caching are provided in [`deployment/`](deployment/):
+- [`deployment/nginx.conf.example`](deployment/nginx.conf.example) — Nginx static hosting and Docker reverse proxy configuration.
+- [`deployment/Caddyfile.example`](deployment/Caddyfile.example) — Caddy configuration with automatic HTTPS.
+- [`deployment/vercel.json.example`](deployment/vercel.json.example) — Vercel edge deployment configuration.
+
+---
+
 ## Manual Testing with a Real Jellyfin Server
 
 1. **Start Development Server:** Run `npm run dev` and open `http://localhost:5173`.
