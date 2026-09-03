@@ -36,6 +36,9 @@ export class PlayerController {
   private config: PlayerControllerInitOptions | null = null;
   private currentSource: PlaybackSource | null = null;
   private abortController: AbortController | null = null;
+  private audioContext: AudioContext | null = null;
+  private delayNode: DelayNode | null = null;
+  private mediaElementSource: MediaElementAudioSourceNode | null = null;
 
   public initialize(videoElement: HTMLVideoElement, config: PlayerControllerInitOptions): void {
     this.destroy();
@@ -251,6 +254,7 @@ export class PlayerController {
         video: this.videoElement,
         subUrl: subTrack.deliveryUrl,
         timeOffset: offsetSeconds,
+        fontAttachments: source.fontAttachments,
       });
     } else {
       this.jassubEngine.destroy();
@@ -258,8 +262,42 @@ export class PlayerController {
         this.videoElement,
         subTrack.deliveryUrl,
         subTrack.language || 'en',
-        subTrack.displayTitle || 'Subtitles'
+        subTrack.displayTitle || 'Subtitles',
+        offsetSeconds
       );
+    }
+  }
+
+  private applyAudioDelay(delayMs: number): void {
+    if (!this.videoElement || typeof window === 'undefined') return;
+
+    try {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+
+      if (!this.audioContext) {
+        this.audioContext = new AudioCtx();
+      }
+
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume().catch(() => {});
+      }
+
+      if (!this.delayNode) {
+        this.delayNode = this.audioContext.createDelay(5.0);
+        if (!this.mediaElementSource) {
+          this.mediaElementSource = this.audioContext.createMediaElementSource(this.videoElement);
+        }
+        this.mediaElementSource.connect(this.delayNode);
+        this.delayNode.connect(this.audioContext.destination);
+      }
+
+      const delaySeconds = Math.max(0, delayMs / 1000);
+      this.delayNode.delayTime.setValueAtTime(delaySeconds, this.audioContext.currentTime);
+    } catch {
+      // Graceful fallback if Web Audio is restricted or already routed
     }
   }
 
@@ -310,12 +348,14 @@ export class PlayerController {
   public setAudioDelay(ms: number): void {
     const clamped = Math.max(-5000, Math.min(5000, ms));
     usePlayerStore.getState().setAudioDelayMs(clamped);
+    this.applyAudioDelay(clamped);
   }
 
   public setSubtitleDelay(ms: number): void {
     const clamped = Math.max(-5000, Math.min(5000, ms));
     usePlayerStore.getState().setSubtitleDelayMs(clamped);
     this.jassubEngine.setTimeOffset(clamped / 1000);
+    this.webVttEngine.setTimeOffset(clamped / 1000);
   }
 
   public async setQuality(quality: PlaybackQuality | null): Promise<void> {
@@ -377,6 +417,16 @@ export class PlayerController {
     this.webVttEngine.detach();
     this.jassubEngine.destroy();
     this.videoEngine.destroy();
+    if (this.audioContext) {
+      try {
+        this.audioContext.close().catch(() => {});
+      } catch {
+        // Ignore
+      }
+      this.audioContext = null;
+      this.delayNode = null;
+      this.mediaElementSource = null;
+    }
     this.currentSource = null;
     this.videoElement = null;
     usePlayerStore.getState().reset();

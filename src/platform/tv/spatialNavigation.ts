@@ -22,12 +22,14 @@ export class SpatialNavigationEngine {
    * Retrieves all currently visible and interactive focusable elements.
    */
   public getFocusableElements(container: HTMLElement | Document = document): HTMLElement[] {
-    // Check if an open modal/dialog is present
+    // Check if an open modal/dialog is present with explicit modal semantics
     const openModal = document.querySelector<HTMLElement>(
-      'dialog[open], [role="dialog"]:not([aria-hidden="true"]), [aria-modal="true"]:not([aria-hidden="true"])'
+      'dialog[open], [role="dialog"][aria-modal="true"]:not([aria-hidden="true"]), [aria-modal="true"]:not([aria-hidden="true"])'
     );
 
-    const searchRoot = openModal && openModal.contains(document.activeElement) ? openModal : (openModal || container);
+    const searchRoot = openModal && (openModal.contains(document.activeElement) || !container.contains(document.activeElement))
+      ? openModal
+      : container;
     const elements = Array.from(searchRoot.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
 
     return elements.filter((el) => this.isVisible(el));

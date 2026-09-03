@@ -71,12 +71,16 @@ export function SearchView() {
 
   // Sync debounced input with URL
   React.useEffect(() => {
-    if (debouncedQuery !== urlQuery) {
+    const trimmedDebounced = debouncedQuery.trim();
+    const trimmedUrl = urlQuery.trim();
+
+    // Only push to URL when debounce has settled with the current input
+    if (debouncedQuery === inputQuery && trimmedDebounced !== trimmedUrl) {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
-          if (debouncedQuery.trim()) {
-            next.set('q', debouncedQuery.trim());
+          if (trimmedDebounced) {
+            next.set('q', trimmedDebounced);
           } else {
             next.delete('q');
           }
@@ -86,11 +90,15 @@ export function SearchView() {
         { replace: true }
       );
     }
-  }, [debouncedQuery, urlQuery, setSearchParams]);
+  }, [debouncedQuery, inputQuery, urlQuery, setSearchParams]);
 
   // Keep inputQuery in sync if urlQuery changes via back/forward navigation
+  const prevUrlQueryRef = React.useRef(urlQuery);
   React.useEffect(() => {
-    setInputQuery(urlQuery);
+    if (prevUrlQueryRef.current !== urlQuery) {
+      prevUrlQueryRef.current = urlQuery;
+      setInputQuery(urlQuery);
+    }
   }, [urlQuery]);
 
   const { data: genresList } = useGenres();
@@ -234,6 +242,12 @@ export function SearchView() {
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
                   setInputQuery('');
+                  setSearchParams((prev) => {
+                    const next = new URLSearchParams(prev);
+                    next.delete('q');
+                    next.set('page', '1');
+                    return next;
+                  });
                 }
               }}
               leftIcon={<Search className="h-5 w-5 text-brand-400" />}
@@ -241,7 +255,15 @@ export function SearchView() {
                 inputQuery ? (
                   <button
                     type="button"
-                    onClick={() => setInputQuery('')}
+                    onClick={() => {
+                      setInputQuery('');
+                      setSearchParams((prev) => {
+                        const next = new URLSearchParams(prev);
+                        next.delete('q');
+                        next.set('page', '1');
+                        return next;
+                      });
+                    }}
                     className="p-1 rounded text-surface-400 hover:text-surface-100 transition-colors focus-ring"
                     aria-label="Clear search input"
                   >

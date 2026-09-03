@@ -19,6 +19,7 @@ import {
   buildSubtitleStreamUrl,
   redactMediaUrl,
 } from './streamUrlBuilder';
+import { normalizeServerUrl } from '../api/client/urlUtils';
 import { fontManager } from './subtitles/fontManager';
 import { ticksToSeconds } from '../utils/timeUtils';
 
@@ -65,16 +66,16 @@ function parseSubtitleTracks(
       const deliveryMethod: SubtitleDeliveryMethod =
         s.DeliveryMethod === 'Encode' ? 'Encode' : s.DeliveryMethod === 'Embed' ? 'Embed' : 'External';
 
-      let deliveryUrl: string | undefined = undefined;
-      if (deliveryMethod === 'External') {
-        const codecLower = (s.Codec || 'vtt').toLowerCase();
-        const format =
-          codecLower.includes('ass') || codecLower.includes('ssa')
-            ? 'ass'
-            : codecLower.includes('subrip') || codecLower.includes('srt')
-            ? 'srt'
-            : 'vtt';
+      const codecLower = (s.Codec || 'vtt').toLowerCase();
+      const format =
+        codecLower.includes('ass') || codecLower.includes('ssa')
+          ? 'ass'
+          : codecLower.includes('subrip') || codecLower.includes('srt')
+          ? 'srt'
+          : 'vtt';
 
+      let deliveryUrl = s.DeliveryUrl;
+      if (!deliveryUrl && (deliveryMethod === 'External' || deliveryMethod === 'Embed')) {
         deliveryUrl = buildSubtitleStreamUrl({
           serverUrl,
           itemId,
@@ -83,6 +84,11 @@ function parseSubtitleTracks(
           format,
           token,
         });
+      } else if (deliveryUrl && !deliveryUrl.startsWith('http://') && !deliveryUrl.startsWith('https://')) {
+        const base = normalizeServerUrl(serverUrl);
+        const cleanPath = deliveryUrl.startsWith('/') ? deliveryUrl : `/${deliveryUrl}`;
+        const separator = deliveryUrl.includes('?') ? '&' : '?';
+        deliveryUrl = `${base}${cleanPath}${separator}api_key=${encodeURIComponent(token)}`;
       }
 
       return {
@@ -197,7 +203,18 @@ export function selectMediaSource(options: SelectMediaSourceOptions): PlaybackSo
   let playbackMode: PlaybackMode;
   let rawUrl: string;
 
-  if (selectedSource.SupportsDirectPlay) {
+  const isDirectPlayableContainer =
+    container === 'mp4' ||
+    container === 'm4v' ||
+    container === 'webm' ||
+    container === 'mov' ||
+    container === 'mp3' ||
+    container === 'ogg' ||
+    container === 'aac' ||
+    container === 'flac' ||
+    container === 'wav';
+
+  if (selectedSource.SupportsDirectPlay && isDirectPlayableContainer) {
     playMethod = 'DirectPlay';
     playbackMode = 'DIRECT_PLAY';
     rawUrl = buildDirectPlayUrl({
@@ -224,11 +241,27 @@ export function selectMediaSource(options: SelectMediaSourceOptions): PlaybackSo
       transcodingUrl: selectedSource.TranscodingUrl,
       token,
     });
+  } else if (selectedSource.SupportsDirectPlay) {
+    playMethod = 'DirectPlay';
+    playbackMode = 'DIRECT_PLAY';
+    rawUrl = buildDirectPlayUrl({
+      serverUrl,
+      itemId,
+      mediaSourceId,
+      playSessionId,
+      container,
+      token,
+    });
   } else {
-    throw new AppError(
-      'Media source contains no usable direct or transcoding delivery URL.',
-      { code: 'PLAYBACK_ERROR', statusCode: 400 }
-    );
+    // Robust fallback to on-demand Jellyfin HLS master playlist
+    playMethod = 'Transcode';
+    playbackMode = 'TRANSCODE';
+    const fallbackTranscodePath = `/Videos/${encodeURIComponent(itemId)}/master.m3u8?MediaSourceId=${encodeURIComponent(mediaSourceId)}&PlaySessionId=${encodeURIComponent(playSessionId)}&VideoCodec=h264&AudioCodec=aac`;
+    rawUrl = buildHlsStreamUrl({
+      serverUrl,
+      transcodingUrl: fallbackTranscodePath,
+      token,
+    });
   }
 
   const totalDurationSeconds = ticksToSeconds(selectedSource.RunTimeTicks);

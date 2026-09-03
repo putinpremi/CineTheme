@@ -222,6 +222,40 @@ export class MediaService {
 
     return (result.Items || []).map((item) => mapCollectionDtoToDomain(item, serverUrl));
   }
+
+  /**
+   * Retrieves episodes for a TV Series or Season.
+   */
+  public async getEpisodes(
+    serverUrl: string,
+    userId: string,
+    seriesId: string,
+    token: string,
+    seasonId?: string,
+    signal?: AbortSignal
+  ): Promise<MediaItem[]> {
+    const defaultFields =
+      'Overview,PrimaryImageAspectRatio,RunTimeTicks,SeriesName,SeasonName,IndexNumber,ParentIndexNumber';
+    const queryParams: Record<string, string | number | boolean | undefined> = {
+      userId,
+      Fields: defaultFields,
+    };
+    if (seasonId) {
+      queryParams.seasonId = seasonId;
+    }
+
+    const result = await httpClient.get<QueryResultDto<BaseItemDto>>(
+      serverUrl,
+      `/Shows/${encodeURIComponent(seriesId)}/Episodes`,
+      {
+        token,
+        queryParams,
+        signal,
+      }
+    );
+
+    return (result.Items || []).map((item) => mapBaseItemDtoToDomain(item, serverUrl));
+  }
 }
 
 export const mediaService = new MediaService();

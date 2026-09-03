@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { PlayerController } from '../player/playerController';
 import { useAuthStore } from '../state/stores/useAuthStore';
 import { useItemDetails } from '../hooks/useMediaQueries';
@@ -23,6 +23,7 @@ import { mobileAdapter } from '../platform/mobileAdapter';
 export function PlayerView() {
   const { itemId } = useParams<{ itemId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const session = useAuthStore((s) => s.session);
   const logout = useAuthStore((s) => s.logout);
@@ -118,11 +119,18 @@ export function PlayerView() {
     if (hasResolvedResume) return;
 
     if (isSuccess && item) {
-      const previousSeconds = item.playbackPositionSeconds || 0;
+      const startParam = searchParams.get('start');
+      const resumeParam = searchParams.get('resume');
 
-      // If item has more than 10 seconds of saved progress, prompt resume
-      if (previousSeconds > 10) {
-        setResumePromptTime(previousSeconds);
+      if (startParam !== null) {
+        setHasResolvedResume(true);
+        const targetSeconds = Math.max(0, parseFloat(startParam) || 0);
+        startPlayback(targetSeconds);
+      } else if (resumeParam === 'false') {
+        setHasResolvedResume(true);
+        startPlayback(0);
+      } else if ((item.playbackPositionSeconds || 0) > 10) {
+        setResumePromptTime(item.playbackPositionSeconds || 0);
       } else {
         setHasResolvedResume(true);
         startPlayback(0);
@@ -131,7 +139,20 @@ export function PlayerView() {
       setHasResolvedResume(true);
       startPlayback(0);
     }
-  }, [item, isSuccess, isError, hasResolvedResume, startPlayback]);
+  }, [item, isSuccess, isError, hasResolvedResume, searchParams, startPlayback]);
+
+  const handleResume = () => {
+    setHasResolvedResume(true);
+    const startSecs = resumePromptTime || 0;
+    setResumePromptTime(null);
+    startPlayback(startSecs);
+  };
+
+  const handleStartOver = () => {
+    setHasResolvedResume(true);
+    setResumePromptTime(null);
+    startPlayback(0);
+  };
 
   // Next / Previous episode transitions
   const handleNextEpisode = React.useCallback(() => {
@@ -186,19 +207,6 @@ export function PlayerView() {
     };
   }, []);
 
-  const handleResume = () => {
-    setHasResolvedResume(true);
-    const startSecs = resumePromptTime || 0;
-    setResumePromptTime(null);
-    startPlayback(startSecs);
-  };
-
-  const handleStartOver = () => {
-    setHasResolvedResume(true);
-    setResumePromptTime(null);
-    startPlayback(0);
-  };
-
   const displayTitle = item?.name || 'CineTheme Video Stream';
   const displaySubtitle = item?.seriesName
     ? `${item.seriesName} — Season ${item.parentIndexNumber || 1}, Episode ${item.indexNumber || 1}`
@@ -238,15 +246,10 @@ export function PlayerView() {
       <div
         className="relative w-full h-full flex items-center justify-center"
         onTouchEnd={handleTouchEnd}
-        onClick={(e) => {
-          if (e.target === videoRef.current) {
-            controllerRef.current?.togglePlay();
-          }
-        }}
       >
         <video
           ref={videoRef}
-          className="w-full h-full object-contain"
+          className="w-full h-full object-contain bg-black pointer-events-none"
           playsInline
           aria-label="CineTheme Video Stream"
         />

@@ -13,16 +13,22 @@ export interface SkipButtonOverlayProps {
 
 export function SkipButtonOverlay({ controller, segments }: SkipButtonOverlayProps) {
   const currentTime = usePlayerStore((s) => s.currentTime);
+  const itemId = usePlayerStore((s) => s.itemId);
   const autoSkipIntro = usePlaybackPreferencesStore((s) => s.autoSkipIntro);
   const autoSkipOutro = usePlaybackPreferencesStore((s) => s.autoSkipOutro);
 
   const [skippedSegments, setSkippedSegments] = React.useState<Set<string>>(new Set());
 
+  // Reset skipped segment memory when switching items/episodes (BUG-009)
+  React.useEffect(() => {
+    setSkippedSegments(new Set());
+  }, [itemId]);
+
   const activeSegment = React.useMemo(() => {
     return introDetector.getActiveSegment(currentTime, segments);
   }, [currentTime, segments]);
 
-  const segmentKey = activeSegment ? `${activeSegment.type}:${activeSegment.startTimeSeconds}` : null;
+  const segmentKey = activeSegment ? `${itemId || 'media'}:${activeSegment.type}:${activeSegment.startTimeSeconds}` : null;
   const isAlreadySkipped = segmentKey ? skippedSegments.has(segmentKey) : false;
 
   const handleSkip = React.useCallback(() => {

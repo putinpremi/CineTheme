@@ -33,14 +33,25 @@ export class PlaybackService {
     });
 
     const payload: PlaybackInfoDto = {
-      UserId: userId,
+      UserId: userId || undefined,
       DeviceProfile: deviceProfile,
       StartTimeTicks: options.startTimeTicks,
       AudioStreamIndex: options.audioStreamIndex,
       SubtitleStreamIndex: options.subtitleStreamIndex,
       MediaSourceId: options.mediaSourceId,
       MaxStreamingBitrate: options.maxStreamingBitrate,
+      EnableDirectPlay: true,
+      EnableDirectStream: true,
+      EnableTranscoding: true,
+      AllowVideoStreamCopy: true,
+      AllowAudioStreamCopy: true,
+      AutoOpenLiveStream: true,
     };
+
+    const queryParams: Record<string, string | undefined> = {};
+    if (userId) {
+      queryParams.userId = userId;
+    }
 
     return httpClient.post<PlaybackInfoResponseDto>(
       serverUrl,
@@ -48,7 +59,7 @@ export class PlaybackService {
       payload,
       {
         token,
-        queryParams: { userId },
+        queryParams,
         signal,
       }
     );

@@ -1,7 +1,8 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Compass, Search, Settings, Server, Sparkles } from 'lucide-react';
+import { Home, Compass, Search, Settings, Server } from 'lucide-react';
 import { useUIStore } from '../../state/stores/useUIStore';
 import { InstallButton } from '../pwa/InstallButton';
+import { CineThemeLogo } from '../ui/CineThemeLogo';
 import { cn } from '../../utils/cn';
 
 const NAV_ITEMS = [
@@ -55,11 +56,11 @@ export function Sidebar() {
 
       {isSidebarOpen && (
         <div className="p-4 border-t border-surface-800">
-          <div className="rounded-lg bg-surface-900/60 p-3 border border-surface-800 flex items-center gap-2.5">
-            <Sparkles className="h-4 w-4 text-brand-400 shrink-0" />
-            <div className="text-xs text-surface-400">
-              <span className="text-surface-200 font-medium block">CineTheme Web</span>
-              <span>Flagship Client</span>
+          <div className="rounded-xl bg-surface-900/60 p-3 border border-surface-800/80 flex items-center gap-3">
+            <CineThemeLogo size="sm" showWordmark={false} />
+            <div className="text-xs text-surface-400 min-w-0">
+              <span className="text-surface-100 font-semibold block truncate">CineTheme</span>
+              <span className="text-[11px] text-surface-400 truncate block">Cinematic Client</span>
             </div>
           </div>
         </div>

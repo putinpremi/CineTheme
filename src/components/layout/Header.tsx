@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Search, Menu, Server, Settings, Film } from 'lucide-react';
+import { Search, Menu, Server, Settings } from 'lucide-react';
 import { useUIStore } from '../../state/stores/useUIStore';
 import { useAuthStore } from '../../state/stores/useAuthStore';
 import { IconButton } from '../ui/Button';
+import { CineThemeLogo } from '../ui/CineThemeLogo';
 
 export function Header() {
   const location = useLocation();
@@ -27,13 +28,8 @@ export function Header() {
           <Menu className="h-5 w-5" />
         </IconButton>
 
-        <Link to="/home" aria-label="CineTheme Home" className="flex items-center gap-2.5 focus-ring rounded-md p-1">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500/20 text-brand-400 border border-brand-500/30">
-            <Film className="h-4 w-4" />
-          </div>
-          <span className="font-display text-lg font-bold tracking-tight text-surface-50">
-            Cine<span className="text-brand-400">Theme</span>
-          </span>
+        <Link to="/home" aria-label="CineTheme Home" className="flex items-center focus-ring rounded-xl p-0.5">
+          <CineThemeLogo size="md" />
         </Link>
       </div>
 

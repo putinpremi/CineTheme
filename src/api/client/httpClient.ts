@@ -179,7 +179,26 @@ export class HttpClient {
         );
       }
 
-      throw new AppError(`HTTP Error ${status}: ${response.statusText}`, {
+      let errorDetail = '';
+      try {
+        const errText = await response.text();
+        if (errText) {
+          try {
+            const errJson = JSON.parse(errText);
+            errorDetail = errJson.message || errJson.title || errJson.error || '';
+          } catch {
+            errorDetail = errText.slice(0, 200);
+          }
+        }
+      } catch {
+        // Ignore read errors
+      }
+
+      const errorMessage = errorDetail
+        ? `HTTP Error ${status}: ${errorDetail}`
+        : `HTTP Error ${status}: ${response.statusText || 'Bad Request'}`;
+
+      throw new AppError(errorMessage, {
         code: 'NETWORK_ERROR',
         statusCode: status,
         isRecoverable: status >= 500,

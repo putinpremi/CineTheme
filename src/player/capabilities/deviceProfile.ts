@@ -24,8 +24,8 @@ export interface JellyfinSubtitleProfile {
 }
 
 export interface JellyfinDeviceProfile {
-  Name: string;
-  Id: string;
+  Name?: string;
+  Id?: string;
   MaxStreamingBitrate: number;
   MaxStaticBitrate: number;
   DirectPlayProfiles: JellyfinDirectPlayProfile[];
@@ -33,7 +33,6 @@ export interface JellyfinDeviceProfile {
   ContainerProfiles: unknown[];
   CodecProfiles: unknown[];
   SubtitleProfiles: JellyfinSubtitleProfile[];
-  ResponseProfiles: unknown[];
 }
 
 export interface BuildDeviceProfileOptions {
@@ -43,7 +42,7 @@ export interface BuildDeviceProfileOptions {
 
 /**
  * Constructs a verified Jellyfin DeviceProfile based on runtime browser capability detection.
- * Conservative by design: never advertises formats or codecs unsupported by the active browser.
+ * Conservative by design: adheres strictly to Jellyfin OpenAPI schema without invalid properties or UUIDs.
  */
 export function buildDeviceProfile(options: BuildDeviceProfileOptions = {}): JellyfinDeviceProfile {
   const caps = options.capabilities ?? detectDeviceCapabilities();
@@ -57,7 +56,17 @@ export function buildDeviceProfile(options: BuildDeviceProfileOptions = {}): Jel
       Container: caps.directPlayContainers.join(','),
       Type: 'Video',
       VideoCodec: caps.directVideoCodecs.join(','),
-      AudioCodec: caps.directAudioCodecs.join(','),
+      AudioCodec: caps.directAudioCodecs.length > 0 ? caps.directAudioCodecs.join(',') : 'aac,mp3',
+    });
+  }
+
+  // HLS Direct Play Profile
+  if (caps.isHlsSupported && caps.directVideoCodecs.length > 0) {
+    directPlayProfiles.push({
+      Container: 'hls',
+      Type: 'Video',
+      VideoCodec: caps.directVideoCodecs.join(','),
+      AudioCodec: caps.directAudioCodecs.length > 0 ? caps.directAudioCodecs.join(',') : 'aac,mp3',
     });
   }
 
@@ -82,6 +91,22 @@ export function buildDeviceProfile(options: BuildDeviceProfileOptions = {}): Jel
       Context: 'Streaming',
       BreakOnNonKeyFrames: true,
     });
+    transcodingProfiles.push({
+      Container: 'mp4',
+      Type: 'Video',
+      VideoCodec: 'h264',
+      AudioCodec: 'aac,mp3,opus',
+      Protocol: 'hls',
+      Context: 'Streaming',
+      BreakOnNonKeyFrames: true,
+    });
+    transcodingProfiles.push({
+      Container: 'ts',
+      Type: 'Audio',
+      AudioCodec: 'aac',
+      Protocol: 'hls',
+      Context: 'Streaming',
+    });
   }
 
   // Subtitle Profiles (CineTheme client supports External VTT, SRT, ASS, and SSA)
@@ -94,7 +119,6 @@ export function buildDeviceProfile(options: BuildDeviceProfileOptions = {}): Jel
 
   return {
     Name: 'CineTheme Web Player',
-    Id: 'cinetheme-web-v1',
     MaxStreamingBitrate: maxBitrate,
     MaxStaticBitrate: maxBitrate,
     DirectPlayProfiles: directPlayProfiles,
@@ -102,6 +126,5 @@ export function buildDeviceProfile(options: BuildDeviceProfileOptions = {}): Jel
     ContainerProfiles: [],
     CodecProfiles: [],
     SubtitleProfiles: subtitleProfiles,
-    ResponseProfiles: [],
   };
 }

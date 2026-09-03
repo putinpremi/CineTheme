@@ -121,7 +121,8 @@ export class VideoEngine {
       this.video.currentTime = this.pendingStartTime;
       this.pendingStartTime = 0;
     }
-    this.callbacks.onStateChange?.(true, false, false);
+    const isPlaying = this.video ? !this.video.paused : false;
+    this.callbacks.onStateChange?.(isPlaying, !isPlaying, false);
   };
 
   private handlePlaying = (): void => {

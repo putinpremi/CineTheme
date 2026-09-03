@@ -1,10 +1,11 @@
+import * as React from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Container } from '../components/layout/Container';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import { ErrorState } from '../components/ui/EmptyState';
-import { Play, ArrowLeft, Star, Clock, Calendar, ShieldAlert } from 'lucide-react';
-import { useItemDetails } from '../hooks/useMediaQueries';
+import { Play, RotateCcw, ArrowLeft, Star, Clock, Calendar, ShieldAlert } from 'lucide-react';
+import { useItemDetails, useEpisodes } from '../hooks/useMediaQueries';
 import { buildItemImageUrl } from '../api/client/imageUtils';
 import { useAuthStore } from '../state/stores/useAuthStore';
 
@@ -32,6 +33,21 @@ export function ItemDetailsView() {
     error,
     refetch,
   } = useItemDetails(itemId || '');
+
+  const isSeries = item?.type === 'Series' || item?.type === 'Season';
+  const { data: episodes } = useEpisodes(
+    isSeries && item ? item.id : '',
+    item?.type === 'Season' ? item.id : undefined
+  );
+
+  const firstPlayableEpisode = React.useMemo(() => {
+    if (!episodes || episodes.length === 0) return null;
+    return (
+      episodes.find(
+        (ep) => !ep.isPlayed && (ep.playbackPositionSeconds || 0) < (ep.runTimeSeconds || 60) * 0.9
+      ) || episodes[0]
+    );
+  }, [episodes]);
 
   if (isError) {
     return (
@@ -80,6 +96,12 @@ export function ItemDetailsView() {
 
   const formattedRuntime = formatRuntime(item.runTimeSeconds);
 
+  const hasResumeProgress = (item.playbackPositionSeconds || 0) > 10;
+  const progressPercent =
+    item.runTimeTicks && item.runTimeTicks > 0 && item.playbackPositionTicks
+      ? Math.min(100, Math.round((item.playbackPositionTicks / item.runTimeTicks) * 100))
+      : 0;
+
   return (
     <div className="relative min-h-[calc(100vh-4rem)] pb-16">
       {/* Cinematic Backdrop Hero Banner */}
@@ -112,16 +134,32 @@ export function ItemDetailsView() {
           {/* Hero Metadata Section */}
           <div className="flex flex-col md:flex-row gap-8 items-start">
             {/* Poster Card */}
-            <div className="w-48 sm:w-64 md:w-72 shrink-0 aspect-[2/3] rounded-2xl overflow-hidden bg-surface-900 border border-surface-750/70 shadow-2xl">
-              {posterUrl ? (
-                <img
-                  src={posterUrl}
-                  alt={item.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-surface-600">
-                  <Star className="h-12 w-12 stroke-1" />
+            <div className="w-48 sm:w-64 md:w-72 shrink-0 flex flex-col gap-2.5">
+              <div className="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-surface-900 border border-surface-750/70 shadow-2xl relative">
+                {posterUrl ? (
+                  <img
+                    src={posterUrl}
+                    alt={item.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-surface-600">
+                    <Star className="h-12 w-12 stroke-1" />
+                  </div>
+                )}
+              </div>
+              {progressPercent > 0 && (
+                <div className="space-y-1.5 px-0.5">
+                  <div className="h-1.5 w-full bg-surface-850 rounded-full overflow-hidden border border-surface-750/50">
+                    <div
+                      className="h-full bg-brand-500 rounded-full transition-all duration-300"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[11px] text-surface-400 font-mono">
+                    <span>Watched</span>
+                    <span>{progressPercent}%</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -178,12 +216,54 @@ export function ItemDetailsView() {
 
               {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-3 pt-2">
-                <Link to={`/player/${item.id}`}>
-                  <Button variant="primary" size="md" className="gap-2.5 px-6 shadow-lg shadow-brand-500/20">
-                    <Play className="h-4 w-4 fill-current" />
-                    <span>Play</span>
-                  </Button>
-                </Link>
+                {isSeries ? (
+                  firstPlayableEpisode ? (
+                    <Link
+                      to={`/player/${firstPlayableEpisode.id}${
+                        (firstPlayableEpisode.playbackPositionSeconds || 0) > 10
+                          ? `?start=${firstPlayableEpisode.playbackPositionSeconds}`
+                          : ''
+                      }`}
+                    >
+                      <Button variant="primary" size="md" className="gap-2.5 px-6 shadow-lg shadow-brand-500/20">
+                        <Play className="h-4 w-4 fill-current" />
+                        <span>
+                          {(firstPlayableEpisode.playbackPositionSeconds || 0) > 10 ? 'Resume' : 'Play'}{' '}
+                          {firstPlayableEpisode.indexNumber
+                            ? `S${firstPlayableEpisode.parentIndexNumber || 1}:E${firstPlayableEpisode.indexNumber}`
+                            : 'Next Episode'}
+                        </span>
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button variant="primary" size="md" disabled className="gap-2.5 px-6">
+                      <Play className="h-4 w-4 fill-current" />
+                      <span>No Episodes Found</span>
+                    </Button>
+                  )
+                ) : hasResumeProgress ? (
+                  <>
+                    <Link to={`/player/${item.id}?start=${item.playbackPositionSeconds}`}>
+                      <Button variant="primary" size="md" className="gap-2.5 px-6 shadow-lg shadow-brand-500/20">
+                        <Play className="h-4 w-4 fill-current" />
+                        <span>Resume Playback (from {formatRuntime(item.playbackPositionSeconds)})</span>
+                      </Button>
+                    </Link>
+                    <Link to={`/player/${item.id}?start=0`}>
+                      <Button variant="secondary" size="md" className="gap-2 px-4">
+                        <RotateCcw className="h-4 w-4" />
+                        <span>Start Over</span>
+                      </Button>
+                    </Link>
+                  </>
+                ) : (
+                  <Link to={`/player/${item.id}`}>
+                    <Button variant="primary" size="md" className="gap-2.5 px-6 shadow-lg shadow-brand-500/20">
+                      <Play className="h-4 w-4 fill-current" />
+                      <span>Play</span>
+                    </Button>
+                  </Link>
+                )}
               </div>
 
               {/* Overview / Synopsis */}
@@ -233,6 +313,80 @@ export function ItemDetailsView() {
                         {person.role && <span className="text-surface-400"> ({person.role})</span>}
                       </span>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Episodes List for Series/Season */}
+              {isSeries && episodes && episodes.length > 0 && (
+                <div className="space-y-4 pt-6 border-t border-surface-800/80">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-surface-50 font-display">Episodes</h3>
+                    <span className="text-xs text-surface-400 font-mono">{episodes.length} episodes</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {episodes.map((ep) => {
+                      const epPoster = ep.primaryImageTag
+                        ? buildItemImageUrl(serverUrl, ep.id, 'Primary', { tag: ep.primaryImageTag, maxWidth: 360 })
+                        : '';
+                      const epProgress =
+                        ep.runTimeTicks && ep.runTimeTicks > 0 && ep.playbackPositionTicks
+                          ? Math.min(100, Math.round((ep.playbackPositionTicks / ep.runTimeTicks) * 100))
+                          : 0;
+
+                      return (
+                        <Link
+                          key={ep.id}
+                          to={`/player/${ep.id}${
+                            (ep.playbackPositionSeconds || 0) > 10 ? `?start=${ep.playbackPositionSeconds}` : ''
+                          }`}
+                          className="group flex flex-col rounded-xl overflow-hidden bg-surface-900/90 border border-surface-800 hover:border-brand-500/50 transition-all p-3 gap-2.5"
+                        >
+                          <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-surface-850">
+                            {epPoster ? (
+                              <img
+                                src={epPoster}
+                                alt={ep.name}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="flex w-full h-full items-center justify-center text-surface-600">
+                                <Play className="h-6 w-6" />
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <div className="h-10 w-10 rounded-full bg-brand-500 text-white flex items-center justify-center shadow-lg">
+                                <Play className="h-4 w-4 fill-current ml-0.5" />
+                              </div>
+                            </div>
+                            {epProgress > 0 && (
+                              <div className="absolute bottom-0 left-0 right-0 h-1 bg-surface-950/80">
+                                <div className="h-full bg-brand-500" style={{ width: `${epProgress}%` }} />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between text-xs text-brand-400 font-semibold mb-0.5">
+                              <span>E{ep.indexNumber || 1}</span>
+                              {ep.runTimeSeconds ? (
+                                <span className="text-surface-400 font-normal">{Math.round(ep.runTimeSeconds / 60)}m</span>
+                              ) : null}
+                            </div>
+                            <h4 className="text-sm font-semibold text-surface-100 truncate group-hover:text-brand-300 transition-colors">
+                              {ep.name}
+                            </h4>
+                            {ep.overview && (
+                              <p className="text-xs text-surface-400 line-clamp-2 mt-1 leading-relaxed">
+                                {ep.overview}
+                              </p>
+                            )}
+                          </div>
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -172,7 +172,13 @@ export class PlaybackTelemetry {
   }
 
   private handleError(err: unknown): void {
-    if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 401) {
+    if (
+      err &&
+      typeof err === 'object' &&
+      (('statusCode' in err && (err as { statusCode: number }).statusCode === 401) ||
+        ('status' in err && (err as { status: number }).status === 401) ||
+        ('code' in err && (err as { code: string }).code === 'AUTH_UNAUTHORIZED'))
+    ) {
       this.config?.onUnauthorized?.();
     }
   }

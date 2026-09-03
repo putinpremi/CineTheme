@@ -178,6 +178,12 @@ export interface PlaybackInfoDto {
   SubtitleStreamIndex?: number;
   MediaSourceId?: string;
   DeviceProfile?: unknown;
+  EnableDirectPlay?: boolean;
+  EnableDirectStream?: boolean;
+  EnableTranscoding?: boolean;
+  AllowVideoStreamCopy?: boolean;
+  AllowAudioStreamCopy?: boolean;
+  AutoOpenLiveStream?: boolean;
 }
 
 export interface PlaybackInfoResponseDto {

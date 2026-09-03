@@ -40,6 +40,11 @@ export function usePlayerHotkeys({
           break;
 
         case 'ArrowLeft':
+          if (isMenuOpen) return;
+          e.preventDefault();
+          controller.seekRelative(e.shiftKey ? -30 : -10);
+          break;
+
         case 'KeyJ': {
           e.preventDefault();
           const seekAmount = e.shiftKey ? -30 : -10;
@@ -48,6 +53,11 @@ export function usePlayerHotkeys({
         }
 
         case 'ArrowRight':
+          if (isMenuOpen) return;
+          e.preventDefault();
+          controller.seekRelative(e.shiftKey ? 30 : 10);
+          break;
+
         case 'KeyL': {
           e.preventDefault();
           const seekAmount = e.shiftKey ? 30 : 10;
@@ -56,11 +66,13 @@ export function usePlayerHotkeys({
         }
 
         case 'ArrowUp':
+          if (isMenuOpen) return;
           e.preventDefault();
           controller.adjustVolume(0.05);
           break;
 
         case 'ArrowDown':
+          if (isMenuOpen) return;
           e.preventDefault();
           controller.adjustVolume(-0.05);
           break;

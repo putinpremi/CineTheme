@@ -27,6 +27,13 @@ export function NextEpisodeCountdownOverlay({
   const [countdown, setCountdown] = React.useState(10);
   const hasAutoTriggeredRef = React.useRef(false);
 
+  // Reset overlay state whenever the active target episode changes (BUG-008)
+  React.useEffect(() => {
+    setIsDismissed(false);
+    setCountdown(10);
+    hasAutoTriggeredRef.current = false;
+  }, [nextEpisodeId]);
+
   const remainingSeconds = duration > 0 ? duration - currentTime : 999;
   const isNearEnd =
     Boolean(nextEpisodeId) &&
@@ -62,6 +69,7 @@ export function NextEpisodeCountdownOverlay({
   return (
     <div
       role="dialog"
+      aria-modal="false"
       aria-label="Next Episode Countdown"
       className="absolute bottom-24 left-4 sm:left-8 z-40 max-w-sm p-4 rounded-2xl bg-surface-950/95 backdrop-blur-xl border border-surface-800 shadow-2xl text-surface-100 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-200"
     >

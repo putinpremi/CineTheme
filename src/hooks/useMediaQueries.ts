@@ -151,3 +151,17 @@ export function useCollections() {
     staleTime: 1000 * 60 * 10,
   });
 }
+
+/**
+ * Hook to retrieve episodes for a TV series.
+ */
+export function useEpisodes(seriesId: string, seasonId?: string) {
+  const { serverUrl, userId, serverId, token, isAuthenticated } = useActiveSessionContext();
+
+  return useQuery<MediaItem[], Error>({
+    queryKey: queryKeys.server(serverId).user(userId).episodes(seriesId, seasonId),
+    queryFn: ({ signal }) => mediaService.getEpisodes(serverUrl, userId, seriesId, token, seasonId, signal),
+    enabled: isAuthenticated && !!serverUrl && !!userId && !!token && !!seriesId,
+    staleTime: 1000 * 60 * 5,
+  });
+}

@@ -126,25 +126,27 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const currentSession = get().session;
     set({ status: 'invalidating' });
 
-    if (currentSession) {
-      await authService.logout(currentSession.serverUrl, currentSession.accessToken);
-    }
-
     try {
-      localStorage.removeItem(STORAGE_KEY_ACTIVE_SESSION);
-    } catch {
-      // Ignore
+      if (currentSession) {
+        await authService.logout(currentSession.serverUrl, currentSession.accessToken).catch(() => {});
+      }
+    } finally {
+      try {
+        localStorage.removeItem(STORAGE_KEY_ACTIVE_SESSION);
+      } catch {
+        // Ignore
+      }
+
+      // Invalidate and clear all server query caches
+      queryClient.clear();
+
+      set({
+        status: 'anonymous',
+        session: null,
+        serverInfo: null,
+        error: null,
+      });
     }
-
-    // Invalidate and clear all server query caches
-    queryClient.clear();
-
-    set({
-      status: 'anonymous',
-      session: null,
-      serverInfo: null,
-      error: null,
-    });
   },
 
   handleSessionExpired: () => {
