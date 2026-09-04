@@ -49,6 +49,26 @@ export function ItemDetailsView() {
     );
   }, [episodes]);
 
+  const videoStream = item?.mediaStreams?.find((s) => s.type === 'Video');
+  const audioStream = item?.mediaStreams?.find((s) => s.type === 'Audio');
+
+  const resolutionBadge = React.useMemo(() => {
+    if (!videoStream) return null;
+    const { width, height } = videoStream;
+    if ((width && width >= 3800) || (height && height >= 2000)) return '4K UHD';
+    if ((width && width >= 1900) || (height && height >= 1000)) return '1080p';
+    if ((width && width >= 1200) || (height && height >= 700)) return '720p';
+    return height ? `${height}p` : null;
+  }, [videoStream]);
+
+  const audioChannelsBadge = React.useMemo(() => {
+    if (!audioStream || !audioStream.channels) return null;
+    if (audioStream.channels >= 8) return '7.1 Surround';
+    if (audioStream.channels >= 6) return '5.1 Surround';
+    if (audioStream.channels === 2) return 'Stereo';
+    return `${audioStream.channels}ch`;
+  }, [audioStream]);
+
   if (isError) {
     return (
       <div className="py-12">
@@ -212,6 +232,32 @@ export function ItemDetailsView() {
                     </span>
                   )}
                 </div>
+
+                {/* Tech Specs Badges */}
+                {(resolutionBadge || videoStream?.codec || audioChannelsBadge || audioStream?.codec) && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {resolutionBadge && (
+                      <span className="px-2 py-0.5 rounded border border-brand-500/40 bg-brand-500/10 text-[11px] font-bold text-brand-300 font-mono">
+                        {resolutionBadge}
+                      </span>
+                    )}
+                    {videoStream?.codec && (
+                      <span className="px-2 py-0.5 rounded border border-surface-700 bg-surface-900 text-[11px] font-medium text-surface-300 uppercase font-mono">
+                        {videoStream.codec}
+                      </span>
+                    )}
+                    {audioChannelsBadge && (
+                      <span className="px-2 py-0.5 rounded border border-surface-700 bg-surface-900 text-[11px] font-medium text-surface-300 font-mono">
+                        {audioChannelsBadge}
+                      </span>
+                    )}
+                    {audioStream?.codec && (
+                      <span className="px-2 py-0.5 rounded border border-surface-700 bg-surface-900 text-[11px] font-medium text-surface-300 uppercase font-mono">
+                        {audioStream.codec}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -299,20 +345,60 @@ export function ItemDetailsView() {
 
               {/* Cast & Crew / People */}
               {item.people && item.people.length > 0 && (
-                <div className="space-y-2 pt-2">
+                <div className="space-y-3 pt-3">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-surface-400">
                     Cast & Crew
                   </h3>
-                  <div className="flex flex-wrap gap-2 text-xs text-surface-300">
-                    {item.people.slice(0, 8).map((person) => (
-                      <span
-                        key={person.id || person.name}
-                        className="rounded-md bg-surface-900/80 border border-surface-800 px-2.5 py-1"
-                      >
-                        <span className="font-medium text-surface-100">{person.name}</span>
-                        {person.role && <span className="text-surface-400"> ({person.role})</span>}
-                      </span>
-                    ))}
+                  <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none">
+                    {item.people.slice(0, 16).map((person) => {
+                      const portraitUrl =
+                        person.primaryImageTag && person.id
+                          ? buildItemImageUrl(serverUrl, person.id, 'Primary', {
+                              tag: person.primaryImageTag,
+                              maxWidth: 160,
+                              quality: 80,
+                            })
+                          : '';
+
+                      return (
+                        <div
+                          key={person.id || person.name}
+                          className="flex flex-col items-center text-center w-20 sm:w-24 shrink-0 group"
+                        >
+                          <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full overflow-hidden bg-surface-850 border border-surface-750/80 mb-2 shadow-md flex items-center justify-center">
+                            {portraitUrl ? (
+                              <img
+                                src={portraitUrl}
+                                alt={person.name}
+                                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                                loading="lazy"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <span className="text-base sm:text-lg font-bold text-surface-400">
+                                {person.name.charAt(0)}
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className="text-xs font-semibold text-surface-100 line-clamp-1 w-full group-hover:text-brand-300 transition-colors"
+                            title={person.name}
+                          >
+                            {person.name}
+                          </span>
+                          {person.role && (
+                            <span
+                              className="text-[11px] text-surface-400 line-clamp-1 w-full"
+                              title={person.role}
+                            >
+                              {person.role}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -110,15 +110,47 @@ export function useResumeItems(limit = 12) {
 }
 
 /**
- * Hook to retrieve recently added media.
+ * Hook to retrieve next-up TV episodes.
  */
-export function useRecentlyAdded(parentId?: string, limit = 16) {
+export function useNextUp(limit = 12) {
   const { serverUrl, userId, serverId, token, isAuthenticated } = useActiveSessionContext();
 
   return useQuery<MediaItem[], Error>({
-    queryKey: queryKeys.server(serverId).user(userId).recentlyAdded(parentId, limit),
+    queryKey: queryKeys.server(serverId).user(userId).nextUp(limit),
+    queryFn: ({ signal }) => mediaService.getNextUp(serverUrl, userId, token, limit, signal),
+    enabled: isAuthenticated && !!serverUrl && !!userId && !!token,
+    staleTime: 1000 * 60 * 2,
+  });
+}
+
+/**
+ * Hook to retrieve personalized recommendations/suggestions.
+ */
+export function useSuggestions(limit = 12) {
+  const { serverUrl, userId, serverId, token, isAuthenticated } = useActiveSessionContext();
+
+  return useQuery<MediaItem[], Error>({
+    queryKey: queryKeys.server(serverId).user(userId).suggestions(limit),
+    queryFn: ({ signal }) => mediaService.getSuggestions(serverUrl, userId, token, limit, signal),
+    enabled: isAuthenticated && !!serverUrl && !!userId && !!token,
+    staleTime: 1000 * 60 * 10,
+  });
+}
+
+/**
+ * Hook to retrieve recently added media.
+ */
+export function useRecentlyAdded(
+  parentId?: string,
+  limit = 16,
+  includeItemTypes?: string
+) {
+  const { serverUrl, userId, serverId, token, isAuthenticated } = useActiveSessionContext();
+
+  return useQuery<MediaItem[], Error>({
+    queryKey: ['cinetheme', 'server', serverId, 'user', userId, 'recentlyAdded', { parentId, limit, includeItemTypes }],
     queryFn: ({ signal }) =>
-      mediaService.getRecentlyAdded(serverUrl, userId, token, { parentId, limit }, signal),
+      mediaService.getRecentlyAdded(serverUrl, userId, token, { parentId, limit, includeItemTypes }, signal),
     enabled: isAuthenticated && !!serverUrl && !!userId && !!token,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });

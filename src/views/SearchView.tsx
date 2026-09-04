@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Container } from '../components/layout/Container';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -9,6 +10,9 @@ import { MediaCard } from '../components/media/MediaCard';
 import { PaginationControls } from '../components/media/PaginationControls';
 import { useSearchMedia, useSearchDebounce } from '../hooks/useSearchQueries';
 import { useGenres } from '../hooks/useMediaQueries';
+import { useSeerrStore } from '../state/stores/useSeerrStore';
+import { seerrService, type SeerrMediaItem } from '../api/services/seerrService';
+import { SeerrRequestModal } from '../components/media/SeerrRequestModal';
 import type {
   SearchFilters,
   SearchMediaType,
@@ -26,6 +30,9 @@ import {
   Sparkles,
   Star,
   CheckCircle2,
+  Send,
+  Download,
+  Clock,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
@@ -135,6 +142,31 @@ export function SearchView() {
     refetch,
   } = useSearchMedia(searchFilters);
 
+  // Seerr State & Integration
+  const [searchMode, setSearchMode] = React.useState<'library' | 'seerr'>('library');
+  const [requestModalItem, setRequestModalItem] = React.useState<SeerrMediaItem | null>(null);
+  const [seerrPage] = React.useState(1);
+
+  const seerrEnabled = useSeerrStore((s) => s.enabled);
+  const seerrUrl = useSeerrStore((s) => s.serverUrl);
+  const seerrApiKey = useSeerrStore((s) => s.apiKey);
+
+  const hasSeerrConfigured = Boolean(seerrEnabled && seerrUrl.trim() && seerrApiKey.trim());
+
+  const {
+    data: seerrData,
+    isLoading: isSeerrLoading,
+    isError: isSeerrError,
+    error: seerrErrorObj,
+    refetch: refetchSeerr,
+  } = useQuery({
+    queryKey: ['seerr-search', seerrUrl, debouncedQuery, seerrPage],
+    queryFn: ({ signal }) =>
+      seerrService.searchMedia(seerrUrl, seerrApiKey, debouncedQuery, seerrPage, signal),
+    enabled: searchMode === 'seerr' && hasSeerrConfigured && Boolean(debouncedQuery.trim()),
+    staleTime: 1000 * 60 * 2,
+  });
+
   const handleUpdateParam = (key: string, value: string | undefined) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -231,23 +263,60 @@ export function SearchView() {
           </Button>
         </div>
 
+        {/* Search Scope Switcher (if Seerr configured) */}
+        {hasSeerrConfigured && (
+          <div className="flex items-center gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setSearchMode('library')}
+              className={cn(
+                'px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none',
+                searchMode === 'library'
+                  ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20'
+                  : 'bg-surface-900 border border-surface-800 text-surface-400 hover:text-surface-100 hover:bg-surface-850'
+              )}
+            >
+              Jellyfin Library
+            </button>
+            <button
+              type="button"
+              onClick={() => setSearchMode('seerr')}
+              className={cn(
+                'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer select-none',
+                searchMode === 'seerr'
+                  ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20'
+                  : 'bg-surface-900 border border-surface-800 text-surface-400 hover:text-surface-100 hover:bg-surface-850'
+              )}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Discover & Requests (Jellyseerr)</span>
+            </button>
+          </div>
+        )}
+
         {/* Search Input Bar */}
         <div className="pt-4 space-y-4">
           <div className="relative max-w-3xl">
             <Input
               type="search"
-              placeholder="Search by title, original name, actor, director, or keyword..."
+              placeholder={
+                searchMode === 'seerr'
+                  ? 'Search global TMDB catalog via Jellyseerr for movies & shows...'
+                  : 'Search by title, original name, actor, director, or keyword...'
+              }
               value={inputQuery}
               onChange={(e) => setInputQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
                   setInputQuery('');
-                  setSearchParams((prev) => {
-                    const next = new URLSearchParams(prev);
-                    next.delete('q');
-                    next.set('page', '1');
-                    return next;
-                  });
+                  if (searchMode === 'library') {
+                    setSearchParams((prev) => {
+                      const next = new URLSearchParams(prev);
+                      next.delete('q');
+                      next.set('page', '1');
+                      return next;
+                    });
+                  }
                 }
               }}
               leftIcon={<Search className="h-5 w-5 text-brand-400" />}
@@ -257,12 +326,14 @@ export function SearchView() {
                     type="button"
                     onClick={() => {
                       setInputQuery('');
-                      setSearchParams((prev) => {
-                        const next = new URLSearchParams(prev);
-                        next.delete('q');
-                        next.set('page', '1');
-                        return next;
-                      });
+                      if (searchMode === 'library') {
+                        setSearchParams((prev) => {
+                          const next = new URLSearchParams(prev);
+                          next.delete('q');
+                          next.set('page', '1');
+                          return next;
+                        });
+                      }
                     }}
                     className="p-1 rounded text-surface-400 hover:text-surface-100 transition-colors focus-ring"
                     aria-label="Clear search input"
@@ -276,194 +347,332 @@ export function SearchView() {
             />
           </div>
 
-          {/* Media Type Filter Chips */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {MEDIA_TYPES.map((type) => {
-              const isSelected = urlType === type.value;
-              return (
-                <button
-                  key={type.value}
-                  type="button"
-                  onClick={() => handleMediaTypeChange(type.value)}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all whitespace-nowrap focus-ring cursor-pointer select-none',
-                    isSelected
-                      ? 'bg-brand-500/20 text-brand-300 border border-brand-500/50 shadow-sm font-semibold'
-                      : 'bg-surface-900 border border-surface-800 text-surface-300 hover:bg-surface-850 hover:text-surface-50'
+          {/* Library-Specific Filter Chips & Panels */}
+          {searchMode === 'library' && (
+            <>
+              {/* Media Type Filter Chips */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {MEDIA_TYPES.map((type) => {
+                  const isSelected = urlType === type.value;
+                  return (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => handleMediaTypeChange(type.value)}
+                      className={cn(
+                        'flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all whitespace-nowrap focus-ring cursor-pointer select-none',
+                        isSelected
+                          ? 'bg-brand-500/20 text-brand-300 border border-brand-500/50 shadow-sm font-semibold'
+                          : 'bg-surface-900 border border-surface-800 text-surface-300 hover:bg-surface-850 hover:text-surface-50'
+                      )}
+                      aria-pressed={isSelected}
+                    >
+                      {type.icon}
+                      <span>{type.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Advanced Filter Panel */}
+              <div
+                className={cn(
+                  'pt-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-surface-900/60 p-4 rounded-xl border border-surface-800/80 transition-all',
+                  showFilters ? 'block' : 'hidden sm:grid'
+                )}
+              >
+                {/* Genre Dropdown */}
+                <div className="space-y-1.5">
+                  <label htmlFor="genre-filter" className="text-xs font-medium text-surface-400 flex items-center gap-1.5">
+                    <ListFilter className="h-3.5 w-3.5 text-brand-400" />
+                    <span>Genre</span>
+                  </label>
+                  <select
+                    id="genre-filter"
+                    value={urlGenre}
+                    onChange={handleGenreChange}
+                    className="w-full h-9 rounded-lg bg-surface-850 border border-surface-750 px-3 text-xs text-surface-200 focus-ring cursor-pointer"
+                  >
+                    <option value="">All Genres</option>
+                    {(genresList || []).map((genre) => (
+                      <option key={genre.id} value={genre.name}>
+                        {genre.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Sort Dropdown */}
+                <div className="space-y-1.5">
+                  <label htmlFor="sort-filter" className="text-xs font-medium text-surface-400 flex items-center gap-1.5">
+                    <ArrowUpDown className="h-3.5 w-3.5 text-brand-400" />
+                    <span>Sort By</span>
+                  </label>
+                  <select
+                    id="sort-filter"
+                    value={activeSortIndex >= 0 ? activeSortIndex : 0}
+                    onChange={handleSortChange}
+                    className="w-full h-9 rounded-lg bg-surface-850 border border-surface-750 px-3 text-xs text-surface-200 focus-ring cursor-pointer"
+                  >
+                    {SORT_OPTIONS.map((sortOpt, idx) => (
+                      <option key={idx} value={idx}>
+                        {sortOpt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Quick Toggle Filters */}
+                <div className="space-y-1.5 sm:col-span-2 flex flex-wrap items-end gap-2 pt-1 sm:pt-0">
+                  <button
+                    type="button"
+                    onClick={handleToggleFavorite}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium border transition-colors focus-ring',
+                      urlFavorite
+                        ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 font-semibold'
+                        : 'bg-surface-850 border-surface-750 text-surface-400 hover:text-surface-200'
+                    )}
+                    aria-pressed={urlFavorite}
+                  >
+                    <Star className="h-3.5 w-3.5 fill-current" />
+                    <span>Favorites</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleUnplayed}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium border transition-colors focus-ring',
+                      urlPlayed === false
+                        ? 'bg-brand-500/20 border-brand-500/50 text-brand-300 font-semibold'
+                        : 'bg-surface-850 border-surface-750 text-surface-400 hover:text-surface-200'
+                    )}
+                    aria-pressed={urlPlayed === false}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Unwatched</span>
+                  </button>
+
+                  {hasActiveFilters && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearAll}
+                      className="text-xs text-surface-400 hover:text-surface-100 ml-auto"
+                    >
+                      Reset Filters
+                    </Button>
                   )}
-                  aria-pressed={isSelected}
-                >
-                  {type.icon}
-                  <span>{type.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Advanced Filter Panel (Collapsible on Mobile, Expanded on Desktop) */}
-          <div
-            className={cn(
-              'pt-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-surface-900/60 p-4 rounded-xl border border-surface-800/80 transition-all',
-              showFilters ? 'block' : 'hidden sm:grid'
-            )}
-          >
-            {/* Genre Dropdown */}
-            <div className="space-y-1.5">
-              <label htmlFor="genre-filter" className="text-xs font-medium text-surface-400 flex items-center gap-1.5">
-                <ListFilter className="h-3.5 w-3.5 text-brand-400" />
-                <span>Genre</span>
-              </label>
-              <select
-                id="genre-filter"
-                value={urlGenre}
-                onChange={handleGenreChange}
-                className="w-full h-9 rounded-lg bg-surface-850 border border-surface-750 px-3 text-xs text-surface-200 focus-ring cursor-pointer"
-              >
-                <option value="">All Genres</option>
-                {(genresList || []).map((genre) => (
-                  <option key={genre.id} value={genre.name}>
-                    {genre.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Sort Dropdown */}
-            <div className="space-y-1.5">
-              <label htmlFor="sort-filter" className="text-xs font-medium text-surface-400 flex items-center gap-1.5">
-                <ArrowUpDown className="h-3.5 w-3.5 text-brand-400" />
-                <span>Sort By</span>
-              </label>
-              <select
-                id="sort-filter"
-                value={activeSortIndex >= 0 ? activeSortIndex : 0}
-                onChange={handleSortChange}
-                className="w-full h-9 rounded-lg bg-surface-850 border border-surface-750 px-3 text-xs text-surface-200 focus-ring cursor-pointer"
-              >
-                {SORT_OPTIONS.map((sortOpt, idx) => (
-                  <option key={idx} value={idx}>
-                    {sortOpt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Quick Toggle Filters */}
-            <div className="space-y-1.5 sm:col-span-2 flex flex-wrap items-end gap-2 pt-1 sm:pt-0">
-              <button
-                type="button"
-                onClick={handleToggleFavorite}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium border transition-colors focus-ring',
-                  urlFavorite
-                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 font-semibold'
-                    : 'bg-surface-850 border-surface-750 text-surface-400 hover:text-surface-200'
-                )}
-                aria-pressed={urlFavorite}
-              >
-                <Star className="h-3.5 w-3.5 fill-current" />
-                <span>Favorites</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleToggleUnplayed}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium border transition-colors focus-ring',
-                  urlPlayed === false
-                    ? 'bg-brand-500/20 border-brand-500/50 text-brand-300 font-semibold'
-                    : 'bg-surface-850 border-surface-750 text-surface-400 hover:text-surface-200'
-                )}
-                aria-pressed={urlPlayed === false}
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>Unwatched</span>
-              </button>
-
-              {hasActiveFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleClearAll}
-                  className="text-xs text-surface-400 hover:text-surface-100 ml-auto"
-                >
-                  Reset Filters
-                </Button>
-              )}
-            </div>
-          </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Results Area */}
         <div className="pt-6 space-y-6">
-          {/* Error State */}
-          {isError ? (
-            <ErrorState
-              title="Search Request Failed"
-              message={error?.message || 'Could not fetch search results from Jellyfin.'}
-              onRetry={() => refetch()}
-            />
-          ) : isLoading ? (
-            /* Loading Skeleton Grid */
-            <div className="space-y-4">
-              <div className="h-4 w-44 rounded bg-surface-800 animate-pulse" />
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {Array.from({ length: 12 }).map((_, idx) => (
-                  <div key={idx} className="space-y-2">
-                    <Skeleton className="aspect-[2/3] w-full rounded-xl" />
-                    <Skeleton className="h-4 w-3/4 rounded" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : searchResults && searchResults.items.length > 0 ? (
-            /* Successful Results Grid */
-            <div className="space-y-6">
-              <div className="flex items-baseline justify-between text-xs sm:text-sm text-surface-400">
-                <span>
-                  Found <span className="font-semibold text-surface-100">{searchResults.totalCount}</span> results
-                  {urlQuery ? (
-                    <span>
-                      {' '}for <span className="font-semibold text-brand-300">"{urlQuery}"</span>
-                    </span>
-                  ) : null}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {searchResults.items.map((item) => (
-                  <MediaCard key={item.id} item={item} aspectRatio="poster" />
-                ))}
-              </div>
-
-              <PaginationControls
-                currentPage={searchResults.currentPage}
-                totalPages={searchResults.totalPages}
-                totalCount={searchResults.totalCount}
-                pageSize={searchResults.pageSize}
-                onPageChange={handlePageChange}
-                isLoading={isLoading}
+          {searchMode === 'seerr' ? (
+            /* ================= Seerr Results ================= */
+            isSeerrError ? (
+              <ErrorState
+                title="Jellyseerr Discovery Failed"
+                message={(seerrErrorObj as Error)?.message || 'Could not fetch results from Jellyseerr.'}
+                onRetry={() => refetchSeerr()}
               />
-            </div>
-          ) : hasSearchCriteria ? (
-            /* Zero Results Empty State */
-            <EmptyState
-              icon={<Search className="h-8 w-8 text-brand-400" />}
-              title="No Results Found"
-              description={`No media items matched your search criteria${
-                urlQuery ? ` for "${urlQuery}"` : ''
-              }. Try adjusting your filters or keyword query.`}
-            />
+            ) : isSeerrLoading ? (
+              <div className="space-y-4">
+                <div className="h-4 w-44 rounded bg-surface-800 animate-pulse" />
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {Array.from({ length: 12 }).map((_, idx) => (
+                    <div key={idx} className="space-y-2">
+                      <Skeleton className="aspect-[2/3] w-full rounded-xl" />
+                      <Skeleton className="h-4 w-3/4 rounded" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : seerrData && seerrData.results.length > 0 ? (
+              <div className="space-y-6">
+                <div className="flex items-baseline justify-between text-xs sm:text-sm text-surface-400">
+                  <span>
+                    Found <span className="font-semibold text-surface-100">{seerrData.totalResults}</span> titles for{' '}
+                    <span className="font-semibold text-brand-300">"{debouncedQuery}"</span>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {seerrData.results.map((item) => (
+                    <div
+                      key={`${item.mediaType}-${item.id}`}
+                      className="group relative flex flex-col rounded-xl overflow-hidden bg-surface-900 border border-surface-800 hover:border-brand-500/50 transition-all"
+                    >
+                      <div className="aspect-[2/3] w-full relative bg-surface-850 overflow-hidden">
+                        {item.posterPath ? (
+                          <img
+                            src={item.posterPath}
+                            alt={item.title}
+                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-surface-600">
+                            {item.mediaType === 'movie' ? (
+                              <Film className="h-8 w-8" />
+                            ) : (
+                              <Tv className="h-8 w-8" />
+                            )}
+                          </div>
+                        )}
+                        <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                          {item.status === 'AVAILABLE' && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500 text-white shadow-md">
+                              Available
+                            </span>
+                          )}
+                          {item.status === 'PARTIALLY_AVAILABLE' && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500 text-white shadow-md">
+                              Partial
+                            </span>
+                          )}
+                          {item.status === 'PROCESSING' && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-500 text-white shadow-md flex items-center gap-1">
+                              <Download className="h-2.5 w-2.5" /> Processing
+                            </span>
+                          )}
+                          {item.status === 'PENDING_APPROVAL' && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500 text-white shadow-md flex items-center gap-1">
+                              <Clock className="h-2.5 w-2.5" /> Requested
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="p-3 flex flex-col flex-1 justify-between gap-2">
+                        <div>
+                          <div className="flex items-center justify-between text-[11px] text-surface-400 font-medium mb-0.5">
+                            <span className="uppercase text-brand-400 font-semibold">{item.mediaType}</span>
+                            {item.releaseDate && <span>{item.releaseDate.slice(0, 4)}</span>}
+                          </div>
+                          <h3
+                            className="text-xs font-semibold text-surface-100 line-clamp-1 group-hover:text-brand-300 transition-colors"
+                            title={item.title}
+                          >
+                            {item.title}
+                          </h3>
+                        </div>
+                        {item.status === 'NOT_REQUESTED' ? (
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => setRequestModalItem(item)}
+                            className="w-full h-7 text-xs gap-1.5 mt-1"
+                          >
+                            <Send className="h-3 w-3" />
+                            <span>Request</span>
+                          </Button>
+                        ) : (
+                          <div className="h-7 flex items-center justify-center text-[11px] text-surface-400 font-medium">
+                            {item.status === 'AVAILABLE' ? 'In Library' : 'Requested'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : debouncedQuery.trim() ? (
+              <EmptyState
+                icon={<Search className="h-8 w-8 text-brand-400" />}
+                title="No Titles Found in Jellyseerr"
+                description={`Could not find any movies or TV series on TMDB matching "${debouncedQuery}".`}
+              />
+            ) : (
+              <EmptyState
+                icon={<Sparkles className="h-8 w-8 text-brand-400" />}
+                title="Discover & Request Media"
+                description="Search the global catalog to request missing movies or series through your connected Jellyseerr instance."
+              />
+            )
           ) : (
-            /* Initial Search Prompt */
-            <EmptyState
-              icon={<Sparkles className="h-8 w-8 text-brand-400" />}
-              title="Discover Your Media"
-              description="Type a movie or series title, actor name, director, or select a genre above to start exploring."
-            />
+            /* ================= Jellyfin Library Results ================= */
+            <>
+              {isError ? (
+                <ErrorState
+                  title="Search Request Failed"
+                  message={error?.message || 'Could not fetch search results from Jellyfin.'}
+                  onRetry={() => refetch()}
+                />
+              ) : isLoading ? (
+                /* Loading Skeleton Grid */
+                <div className="space-y-4">
+                  <div className="h-4 w-44 rounded bg-surface-800 animate-pulse" />
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {Array.from({ length: 12 }).map((_, idx) => (
+                      <div key={idx} className="space-y-2">
+                        <Skeleton className="aspect-[2/3] w-full rounded-xl" />
+                        <Skeleton className="h-4 w-3/4 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : searchResults && searchResults.items.length > 0 ? (
+                /* Successful Results Grid */
+                <div className="space-y-6">
+                  <div className="flex items-baseline justify-between text-xs sm:text-sm text-surface-400">
+                    <span>
+                      Found <span className="font-semibold text-surface-100">{searchResults.totalCount}</span> results
+                      {urlQuery ? (
+                        <span>
+                          {' '}for <span className="font-semibold text-brand-300">"{urlQuery}"</span>
+                        </span>
+                      ) : null}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {searchResults.items.map((item) => (
+                      <MediaCard key={item.id} item={item} aspectRatio="poster" />
+                    ))}
+                  </div>
+
+                  <PaginationControls
+                    currentPage={searchResults.currentPage}
+                    totalPages={searchResults.totalPages}
+                    totalCount={searchResults.totalCount}
+                    pageSize={searchResults.pageSize}
+                    onPageChange={handlePageChange}
+                    isLoading={isLoading}
+                  />
+                </div>
+              ) : hasSearchCriteria ? (
+                /* Zero Results Empty State */
+                <EmptyState
+                  icon={<Search className="h-8 w-8 text-brand-400" />}
+                  title="No Results Found"
+                  description={`No media items matched your search criteria${
+                    urlQuery ? ` for "${urlQuery}"` : ''
+                  }. Try adjusting your filters or keyword query.`}
+                />
+              ) : (
+                /* Initial Search Prompt */
+                <EmptyState
+                  icon={<Sparkles className="h-8 w-8 text-brand-400" />}
+                  title="Discover Your Media"
+                  description="Type a movie or series title, actor name, director, or select a genre above to start exploring."
+                />
+              )}
+            </>
           )}
         </div>
       </Container>
+
+      {/* Seerr Media Request Modal */}
+      <SeerrRequestModal
+        item={requestModalItem}
+        isOpen={Boolean(requestModalItem)}
+        onClose={() => setRequestModalItem(null)}
+        onSuccess={() => refetchSeerr()}
+      />
     </div>
   );
 }

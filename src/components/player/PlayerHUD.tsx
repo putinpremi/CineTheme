@@ -14,6 +14,7 @@ import {
   Minimize,
   PictureInPicture,
   Info,
+  Gauge,
 } from 'lucide-react';
 import { usePlayerStore } from '../../state/stores/usePlayerStore';
 import { PlayerTimeline } from './PlayerTimeline';
@@ -21,6 +22,7 @@ import { PlayerVolumeControl } from './PlayerVolumeControl';
 import { AudioTrackMenu } from './AudioTrackMenu';
 import { SubtitleTrackMenu } from './SubtitleTrackMenu';
 import { QualityMenu } from './QualityMenu';
+import { PlaybackSpeedMenu } from './PlaybackSpeedMenu';
 import { PlaybackStatsModal } from './PlaybackStatsModal';
 import { isFullscreen, toggleFullscreen } from '../../utils/fullscreenUtils';
 import { isPipSupported, togglePip } from '../../utils/pipUtils';
@@ -65,10 +67,12 @@ export function PlayerHUD({
   const isPaused = usePlayerStore((s) => s.isPaused);
   const activeSubtitleIndex = usePlayerStore((s) => s.activeSubtitleIndex);
   const selectedQuality = usePlayerStore((s) => s.selectedQuality);
+  const playbackRate = usePlayerStore((s) => s.playbackRate);
 
   const [isAudioMenuOpen, setIsAudioMenuOpen] = React.useState(false);
   const [isSubtitleMenuOpen, setIsSubtitleMenuOpen] = React.useState(false);
   const [isQualityMenuOpen, setIsQualityMenuOpen] = React.useState(false);
+  const [isSpeedMenuOpen, setIsSpeedMenuOpen] = React.useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = React.useState(false);
   const [isFullscreenActive, setIsFullscreenActive] = React.useState(false);
 
@@ -89,6 +93,7 @@ export function PlayerHUD({
     setIsAudioMenuOpen(false);
     setIsSubtitleMenuOpen(false);
     setIsQualityMenuOpen(false);
+    setIsSpeedMenuOpen(false);
   }, []);
 
   const handleToggleFullscreen = () => {
@@ -161,6 +166,11 @@ export function PlayerHUD({
           controller={controller}
           isOpen={isQualityMenuOpen}
           onClose={() => setIsQualityMenuOpen(false)}
+        />
+        <PlaybackSpeedMenu
+          controller={controller}
+          isOpen={isSpeedMenuOpen}
+          onClose={() => setIsSpeedMenuOpen(false)}
         />
         <PlaybackStatsModal
           controller={controller}
@@ -299,6 +309,28 @@ export function PlayerHUD({
               {selectedQuality && (
                 <span className="hidden md:inline font-mono text-[10px] text-brand-300 font-semibold">
                   {selectedQuality.height ? `${selectedQuality.height}p` : 'Auto'}
+                </span>
+              )}
+            </button>
+
+            {/* Playback Speed Menu */}
+            <button
+              type="button"
+              onClick={() => {
+                closeAllMenus();
+                setIsSpeedMenuOpen((prev) => !prev);
+              }}
+              aria-label="Playback Speed"
+              className={`p-2 rounded-lg transition-colors focus-ring flex items-center gap-1 text-xs ${
+                isSpeedMenuOpen || playbackRate !== 1.0
+                  ? 'bg-brand-500/20 text-brand-300 border border-brand-500/30 font-semibold'
+                  : 'text-surface-300 hover:text-surface-50 hover:bg-surface-800/60'
+              }`}
+            >
+              <Gauge className="h-5 w-5" />
+              {playbackRate !== 1.0 && (
+                <span className="font-mono text-[10px] text-brand-300 font-semibold">
+                  {playbackRate}x
                 </span>
               )}
             </button>

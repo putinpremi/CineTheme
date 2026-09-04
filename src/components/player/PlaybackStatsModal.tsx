@@ -15,14 +15,28 @@ export function PlaybackStatsModal({ controller, isOpen, onClose }: PlaybackStat
   const subtitleTracks = usePlayerStore((s) => s.subtitleTracks);
   const activeAudioIndex = usePlayerStore((s) => s.activeAudioIndex);
   const activeSubtitleIndex = usePlayerStore((s) => s.activeSubtitleIndex);
+  const selectedQuality = usePlayerStore((s) => s.selectedQuality);
+  const playbackRate = usePlayerStore((s) => s.playbackRate);
+  const audioDelayMs = usePlayerStore((s) => s.audioDelayMs);
+  const subtitleDelayMs = usePlayerStore((s) => s.subtitleDelayMs);
+  const currentTime = usePlayerStore((s) => s.currentTime);
+  const bufferedTime = usePlayerStore((s) => s.bufferedTime);
   const playSessionId = usePlayerStore((s) => s.playSessionId);
   const mediaSourceId = usePlayerStore((s) => s.mediaSourceId);
 
-  const source = controller?.getCurrentSource();
+  const videoEl = typeof controller?.getVideoElement === 'function' ? controller.getVideoElement() : null;
+  const source = typeof controller?.getCurrentSource === 'function' ? controller.getCurrentSource() : null;
   const currentAudio = audioTracks.find((a) => a.index === activeAudioIndex);
   const currentSub = subtitleTracks.find((s) => s.index === activeSubtitleIndex);
 
   if (!isOpen) return null;
+
+  const resolutionStr =
+    videoEl && videoEl.videoWidth > 0
+      ? `${videoEl.videoWidth} × ${videoEl.videoHeight}`
+      : 'Auto / Pending';
+
+  const bufferAhead = Math.max(0, bufferedTime - currentTime).toFixed(1);
 
   return (
     <div
@@ -35,7 +49,7 @@ export function PlaybackStatsModal({ controller, isOpen, onClose }: PlaybackStat
         <div className="flex items-center justify-between border-b border-surface-800 pb-3">
           <div className="flex items-center gap-2">
             <Info className="h-5 w-5 text-brand-400" />
-            <h2 className="text-base font-semibold text-surface-50">Playback Diagnostics</h2>
+            <h2 className="text-base font-semibold text-surface-50">Stream Diagnostics & Media Info</h2>
           </div>
           <button
             type="button"
@@ -55,8 +69,23 @@ export function PlaybackStatsModal({ controller, isOpen, onClose }: PlaybackStat
           </div>
 
           <div className="p-3 rounded-xl bg-surface-900/80 border border-surface-800 flex flex-col gap-1">
+            <span className="text-surface-400">Play Method</span>
+            <span className="font-mono text-surface-200">{source?.playMethod || 'Negotiating'}</span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-surface-900/80 border border-surface-800 flex flex-col gap-1">
             <span className="text-surface-400">Player State</span>
             <span className="font-mono font-bold text-surface-100">{playerState}</span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-surface-900/80 border border-surface-800 flex flex-col gap-1">
+            <span className="text-surface-400">Video Resolution</span>
+            <span className="font-mono text-surface-100 font-semibold">{resolutionStr}</span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-surface-900/80 border border-surface-800 flex flex-col gap-1">
+            <span className="text-surface-400">Buffer Health</span>
+            <span className="font-mono text-emerald-400 font-semibold">+{bufferAhead}s forward</span>
           </div>
 
           <div className="p-3 rounded-xl bg-surface-900/80 border border-surface-800 flex flex-col gap-1">
@@ -65,8 +94,22 @@ export function PlaybackStatsModal({ controller, isOpen, onClose }: PlaybackStat
           </div>
 
           <div className="p-3 rounded-xl bg-surface-900/80 border border-surface-800 flex flex-col gap-1">
-            <span className="text-surface-400">Play Method</span>
-            <span className="font-mono text-surface-200">{source?.playMethod || 'Negotiating'}</span>
+            <span className="text-surface-400">Playback Speed</span>
+            <span className="font-mono text-surface-200">{playbackRate}x</span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-surface-900/80 border border-surface-800 flex flex-col gap-1">
+            <span className="text-surface-400">Audio Sync Offset</span>
+            <span className="font-mono text-surface-200">
+              {audioDelayMs > 0 ? `+${audioDelayMs}` : audioDelayMs} ms
+            </span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-surface-900/80 border border-surface-800 flex flex-col gap-1 col-span-2">
+            <span className="text-surface-400">Subtitle Sync Offset</span>
+            <span className="font-mono text-surface-200">
+              {subtitleDelayMs > 0 ? `+${subtitleDelayMs}` : subtitleDelayMs} ms
+            </span>
           </div>
 
           <div className="p-3 rounded-xl bg-surface-900/80 border border-surface-800 flex flex-col gap-1 col-span-2">
@@ -82,6 +125,15 @@ export function PlaybackStatsModal({ controller, isOpen, onClose }: PlaybackStat
               {currentSub ? `${currentSub.displayTitle} (${currentSub.codec.toUpperCase()})` : 'Off'}
             </span>
           </div>
+
+          {selectedQuality && (
+            <div className="p-3 rounded-xl bg-surface-900/80 border border-surface-800 flex flex-col gap-1 col-span-2">
+              <span className="text-surface-400">Quality Constraint</span>
+              <span className="font-mono text-brand-300">
+                {selectedQuality.label} ({((selectedQuality.maxBitrate || 0) / 1_000_000).toFixed(1)} Mbps cap)
+              </span>
+            </div>
+          )}
 
           <div className="p-3 rounded-xl bg-surface-900/80 border border-surface-800 flex flex-col gap-1 col-span-2">
             <span className="text-surface-400">Session ID</span>

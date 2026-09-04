@@ -32,6 +32,10 @@ export const queryKeys = {
         ['cinetheme', 'server', serverId, 'user', userId, 'trickplay', itemId, width] as const,
       resume: (limit?: number) =>
         ['cinetheme', 'server', serverId, 'user', userId, 'resume', { limit }] as const,
+      nextUp: (limit?: number) =>
+        ['cinetheme', 'server', serverId, 'user', userId, 'nextUp', { limit }] as const,
+      suggestions: (limit?: number) =>
+        ['cinetheme', 'server', serverId, 'user', userId, 'suggestions', { limit }] as const,
       recentlyAdded: (parentId?: string, limit?: number) =>
         ['cinetheme', 'server', serverId, 'user', userId, 'recentlyAdded', { parentId, limit }] as const,
       genres: (parentId?: string) =>

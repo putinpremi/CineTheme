@@ -1,3 +1,6 @@
+import workerUrl from 'jassub/dist/wasm/jassub-worker.js?url';
+import wasmUrl from 'jassub/dist/wasm/jassub-worker.wasm?url';
+import modernWasmUrl from 'jassub/dist/wasm/jassub-worker-modern.wasm?url';
 import type JASSUB from 'jassub';
 import { fontManager, type FontAttachmentInfo } from './fontManager';
 
@@ -38,9 +41,15 @@ export class JassubEngine {
         fonts: loadedFonts,
         timeOffset: options.timeOffset || 0,
         prescaleFactor: 1.0,
+        workerUrl,
+        wasmUrl,
+        modernWasmUrl,
       });
-    } catch {
-      // Graceful fallback if WebAssembly or worker fails in constrained environments
+    } catch (err) {
+      console.warn(
+        '[Subtitles] JASSUB renderer initialization failed; ASS will degrade safely:',
+        (err as Error)?.message || err
+      );
       this.instance = null;
     }
   }

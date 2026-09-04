@@ -1,4 +1,5 @@
 import { cn } from '../../utils/cn';
+import { useWebCustomizationStore } from '../../state/stores/useWebCustomizationStore';
 
 export interface CineThemeLogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -19,16 +20,29 @@ export function CineThemeLogo({
   className,
 }: CineThemeLogoProps) {
   const config = SIZE_MAP[size];
+  const appName = useWebCustomizationStore((s) => s.appName);
+  const customLogoUrl = useWebCustomizationStore((s) => s.customLogoUrl);
 
   return (
     <div className={cn('inline-flex items-center select-none', config.gap, className)}>
-      {/* Official CineTheme Aperture Lens & Play Vector Mark */}
+      {/* Official CineTheme Aperture Lens / Custom Logo Mark */}
       <div
         className={cn(
           'relative flex items-center justify-center shrink-0 rounded-xl overflow-hidden shadow-lg shadow-brand-500/20 transition-transform duration-300 hover:scale-105',
           config.icon
         )}
       >
+        {customLogoUrl ? (
+          <img
+            src={customLogoUrl}
+            alt={appName || 'Logo'}
+            className="w-full h-full object-contain"
+            onError={(e) => {
+              (e.currentTarget as HTMLElement).style.display = 'none';
+            }}
+          />
+        ) : null}
+        {!customLogoUrl && (
         <svg
           viewBox="0 0 48 48"
           fill="none"
@@ -91,15 +105,22 @@ export function CineThemeLogo({
             </linearGradient>
           </defs>
         </svg>
+        )}
       </div>
 
       {/* Typography Wordmark */}
       {showWordmark && (
         <span className={cn('font-display font-black tracking-tight text-surface-50', config.text)}>
-          Cine
-          <span className="bg-gradient-to-r from-brand-400 via-indigo-300 to-sky-400 bg-clip-text text-transparent">
-            Theme
-          </span>
+          {appName && appName !== 'CineTheme' ? (
+            appName
+          ) : (
+            <>
+              Cine
+              <span className="bg-gradient-to-r from-brand-400 via-indigo-300 to-sky-400 bg-clip-text text-transparent">
+                Theme
+              </span>
+            </>
+          )}
         </span>
       )}
     </div>

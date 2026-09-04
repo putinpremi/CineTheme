@@ -70,8 +70,6 @@ function parseSubtitleTracks(
       const format =
         codecLower.includes('ass') || codecLower.includes('ssa')
           ? 'ass'
-          : codecLower.includes('subrip') || codecLower.includes('srt')
-          ? 'srt'
           : 'vtt';
 
       let deliveryUrl = s.DeliveryUrl;
@@ -159,9 +157,13 @@ export function selectMediaSource(options: SelectMediaSourceOptions): PlaybackSo
     selectedSource.MediaAttachments
   );
 
-  // Audio stream resolution with language preference fallback
+  // Audio stream resolution with language preference fallback (respects 'auto' as neutral server default)
   let resolvedAudioIndex = preferredAudioStreamIndex;
-  if (typeof resolvedAudioIndex !== 'number' && preferences?.preferredAudioLanguage) {
+  if (
+    typeof resolvedAudioIndex !== 'number' &&
+    preferences?.preferredAudioLanguage &&
+    preferences.preferredAudioLanguage !== 'auto'
+  ) {
     const langMatch = audioTracks.find(
       (a) => a.language?.toLowerCase() === preferences.preferredAudioLanguage?.toLowerCase()
     );
@@ -214,7 +216,17 @@ export function selectMediaSource(options: SelectMediaSourceOptions): PlaybackSo
     container === 'flac' ||
     container === 'wav';
 
-  if (selectedSource.SupportsDirectPlay && isDirectPlayableContainer) {
+  const activeAudio = audioTracks.find((a) => a.index === finalAudioIndex);
+  const audioCodec = (activeAudio?.codec || '').toLowerCase();
+  const isDirectPlayableAudio =
+    !audioCodec ||
+    audioCodec === 'aac' ||
+    audioCodec === 'mp3' ||
+    audioCodec === 'opus' ||
+    audioCodec === 'flac' ||
+    audioCodec === 'vorbis';
+
+  if (selectedSource.SupportsDirectPlay && isDirectPlayableContainer && isDirectPlayableAudio) {
     playMethod = 'DirectPlay';
     playbackMode = 'DIRECT_PLAY';
     rawUrl = buildDirectPlayUrl({

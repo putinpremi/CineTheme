@@ -21,7 +21,8 @@ export class HlsEngine {
     video: HTMLVideoElement,
     url: string,
     callbacks: HlsEngineCallbacks = {},
-    startTimeSeconds = 0
+    startTimeSeconds = 0,
+    token?: string
   ): Promise<void> {
     this.destroy();
     this.isDestroyed = false;
@@ -29,7 +30,21 @@ export class HlsEngine {
     this.callbacks = callbacks;
     this.recoveryAttempts = 0;
 
-    // Check Native Apple HLS first (Safari on macOS/iOS)
+    try {
+      // Dynamically load Hls.js on demand for MSE-based streaming (preferred for desktop, Chromium, Firefox, Android)
+      const { default: HlsConstructor, Events: HlsEvents } = await import('hls.js');
+
+      if (this.isDestroyed || !this.video) return;
+
+      if (HlsConstructor.isSupported()) {
+        this.initHlsJs(HlsConstructor, HlsEvents, url, startTimeSeconds, token);
+        return;
+      }
+    } catch {
+      // Fall through to native Apple HLS check below
+    }
+
+    // Fallback to Native Apple HLS (Safari on iOS where MSE is not supported)
     if (
       video.canPlayType('application/vnd.apple.mpegurl') !== '' ||
       video.canPlayType('application/x-mpegURL') !== ''
@@ -46,33 +61,18 @@ export class HlsEngine {
       return;
     }
 
-    try {
-      // Dynamically load Hls.js on demand for MSE-based streaming
-      const { default: HlsConstructor, Events: HlsEvents } = await import('hls.js');
-
-      if (this.isDestroyed || !this.video) return;
-
-      if (HlsConstructor.isSupported()) {
-        this.initHlsJs(HlsConstructor, HlsEvents, url, startTimeSeconds);
-      } else {
-        this.callbacks.onError?.(
-          new Error('HLS streaming is not supported by this browser.'),
-          true
-        );
-      }
-    } catch (err) {
-      this.callbacks.onError?.(
-        new Error(`Failed to load streaming engine: ${(err as Error)?.message || 'Unknown error'}`),
-        true
-      );
-    }
+    this.callbacks.onError?.(
+      new Error('HLS streaming is not supported by this browser.'),
+      true
+    );
   }
 
   private initHlsJs(
     HlsConstructor: typeof Hls,
     HlsEvents: typeof Events,
     url: string,
-    startTimeSeconds: number
+    startTimeSeconds: number,
+    token?: string
   ): void {
     if (!this.video) return;
 
@@ -80,7 +80,24 @@ export class HlsEngine {
       startPosition: startTimeSeconds > 0 ? startTimeSeconds : -1,
       enableWorker: true,
       lowLatencyMode: false,
-      backBufferLength: 90,
+      backBufferLength: 60,
+      maxBufferLength: 60, // Maintain a healthy 60-second forward buffer to prevent transcode starvation
+      maxMaxBufferLength: 120, // Buffer up to 120 seconds
+      maxBufferSize: 128 * 1000 * 1000, // 128 MB max buffer memory
+      maxBufferHole: 0.5,
+      highBufferWatchdogPeriod: 2,
+      nudgeOffset: 0.1,
+      nudgeMaxRetry: 5,
+      fragLoadingTimeOut: 30000,
+      fragLoadingMaxRetry: 6,
+      fragLoadingRetryDelay: 1000,
+      fragLoadingMaxRetryTimeout: 64000,
+      xhrSetup: (xhr: XMLHttpRequest) => {
+        if (token) {
+          xhr.setRequestHeader('Authorization', `MediaBrowser Token="${token}"`);
+          xhr.setRequestHeader('X-Emby-Token', token);
+        }
+      },
     });
 
     this.hls.attachMedia(this.video);
@@ -96,6 +113,15 @@ export class HlsEngine {
     this.hls.on(HlsEvents.ERROR, (_event: Events.ERROR, data: ErrorData) => {
       if (data.fatal) {
         this.handleFatalHlsError(data);
+      } else if (data.details === 'bufferStalledError') {
+        // Non-fatal buffer stall: attempt stream nudge past timestamp micro-gap
+        try {
+          if (this.video && !this.video.paused) {
+            this.video.currentTime += 0.1;
+          }
+        } catch {
+          // Ignore
+        }
       }
     });
   }

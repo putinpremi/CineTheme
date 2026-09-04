@@ -1,12 +1,23 @@
 import { Container } from '../components/layout/Container';
 import { Card, CardTitle, CardDescription } from '../components/ui/Card';
-import { Sparkles, Compass, Film, Tv, Music, BookOpen, Layers } from 'lucide-react';
+import {
+  Sparkles,
+  Compass,
+  Film,
+  Tv,
+  Music,
+  BookOpen,
+  Layers,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { MediaShelf } from '../components/media/MediaShelf';
 import {
   useResumeItems,
+  useNextUp,
+  useSuggestions,
   useRecentlyAdded,
   useUserLibraries,
+  useGenres,
 } from '../hooks/useMediaQueries';
 import { Skeleton } from '../components/ui/Skeleton';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -27,12 +38,18 @@ function getLibraryIcon(collectionType?: string) {
 }
 
 export function HomeView() {
+
   const { data: resumeItems, isLoading: isResumeLoading } = useResumeItems(8);
+  const { data: nextUpItems, isLoading: isNextUpLoading } = useNextUp(8);
+  const { data: suggestions, isLoading: isSuggestionsLoading } = useSuggestions(8);
   const { data: latestItems, isLoading: isLatestLoading } = useRecentlyAdded(undefined, 14);
   const { data: libraries, isLoading: isLibrariesLoading } = useUserLibraries();
+  const { data: genres } = useGenres();
 
   const hasContent =
     (resumeItems && resumeItems.length > 0) ||
+    (nextUpItems && nextUpItems.length > 0) ||
+    (suggestions && suggestions.length > 0) ||
     (latestItems && latestItems.length > 0) ||
     (libraries && libraries.length > 0);
 
@@ -57,15 +74,43 @@ export function HomeView() {
       </Container>
 
       {/* Continue Watching / Resume Section */}
-      <Container>
-        <MediaShelf
-          title="Continue Watching"
-          subtitle="Pick up where you left off"
-          items={resumeItems}
-          isLoading={isResumeLoading}
-          aspectRatio="backdrop"
-        />
-      </Container>
+      {resumeItems && resumeItems.length > 0 && (
+        <Container>
+          <MediaShelf
+            title="Continue Watching"
+            subtitle="Pick up where you left off"
+            items={resumeItems}
+            isLoading={isResumeLoading}
+            aspectRatio="backdrop"
+          />
+        </Container>
+      )}
+
+      {/* Next Up (TV Episodes) */}
+      {nextUpItems && nextUpItems.length > 0 && (
+        <Container>
+          <MediaShelf
+            title="Next Up"
+            subtitle="Next episodes queued for your ongoing series"
+            items={nextUpItems}
+            isLoading={isNextUpLoading}
+            aspectRatio="backdrop"
+          />
+        </Container>
+      )}
+
+      {/* Recommended / Suggestions Rail */}
+      {suggestions && suggestions.length > 0 && (
+        <Container>
+          <MediaShelf
+            title="Recommended For You"
+            subtitle="Personalized suggestions based on your watch history"
+            items={suggestions}
+            isLoading={isSuggestionsLoading}
+            aspectRatio="poster"
+          />
+        </Container>
+      )}
 
       {/* Libraries Quick Access Section */}
       <Container>
@@ -115,7 +160,29 @@ export function HomeView() {
         </section>
       </Container>
 
-      {/* Recently Added Section */}
+      {/* Genres Explorer Rail */}
+      {genres && genres.length > 0 && (
+        <Container>
+          <section className="space-y-3" aria-label="Browse Genres">
+            <h2 className="text-xl font-bold tracking-tight text-surface-50 font-display">
+              Browse by Genre
+            </h2>
+            <div className="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none">
+              {genres.slice(0, 16).map((genre) => (
+                <Link
+                  key={genre.id}
+                  to={`/search?genre=${encodeURIComponent(genre.name)}`}
+                  className="px-4 py-2 rounded-xl bg-surface-900 border border-surface-800 hover:border-brand-500/50 hover:bg-surface-850 text-xs font-semibold text-surface-200 hover:text-surface-50 whitespace-nowrap transition-all select-none shrink-0"
+                >
+                  {genre.name}
+                </Link>
+              ))}
+            </div>
+          </section>
+        </Container>
+      )}
+
+      {/* General Recently Added Section */}
       <Container>
         <MediaShelf
           title="Recently Added"

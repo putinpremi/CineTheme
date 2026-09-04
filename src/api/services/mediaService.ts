@@ -140,13 +140,72 @@ export class MediaService {
   }
 
   /**
+   * Retrieves next-up episodes for TV series.
+   */
+  public async getNextUp(
+    serverUrl: string,
+    userId: string,
+    token: string,
+    limit = 12,
+    signal?: AbortSignal
+  ): Promise<MediaItem[]> {
+    const defaultFields =
+      'Overview,PrimaryImageAspectRatio,RunTimeTicks,SeriesName,SeasonName,IndexNumber,ParentIndexNumber';
+
+    const result = await httpClient.get<QueryResultDto<BaseItemDto>>(
+      serverUrl,
+      `/Shows/NextUp`,
+      {
+        token,
+        queryParams: {
+          UserId: userId,
+          Limit: limit,
+          Fields: defaultFields,
+        },
+        signal,
+      }
+    );
+
+    return (result.Items || []).map((item) => mapBaseItemDtoToDomain(item, serverUrl));
+  }
+
+  /**
+   * Retrieves recommended media suggestions.
+   */
+  public async getSuggestions(
+    serverUrl: string,
+    userId: string,
+    token: string,
+    limit = 12,
+    signal?: AbortSignal
+  ): Promise<MediaItem[]> {
+    const defaultFields = 'Overview,PrimaryImageAspectRatio,RunTimeTicks';
+
+    const result = await httpClient.get<QueryResultDto<BaseItemDto>>(
+      serverUrl,
+      `/Items/Suggestions`,
+      {
+        token,
+        queryParams: {
+          UserId: userId,
+          Limit: limit,
+          Fields: defaultFields,
+        },
+        signal,
+      }
+    );
+
+    return (result.Items || []).map((item) => mapBaseItemDtoToDomain(item, serverUrl));
+  }
+
+  /**
    * Retrieves recently ingested media items.
    */
   public async getRecentlyAdded(
     serverUrl: string,
     userId: string,
     token: string,
-    options: { parentId?: string; limit?: number } = {},
+    options: { parentId?: string; limit?: number; includeItemTypes?: string } = {},
     signal?: AbortSignal
   ): Promise<MediaItem[]> {
     const limit = options.limit ?? 16;
@@ -161,6 +220,7 @@ export class MediaService {
           ParentId: options.parentId,
           Limit: limit,
           Fields: defaultFields,
+          IncludeItemTypes: options.includeItemTypes,
         },
         signal,
       }

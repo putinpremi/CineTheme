@@ -28,6 +28,7 @@ export interface PlayerStoreState {
   audioTracks: AudioTrack[];
   subtitleTracks: SubtitleTrack[];
   selectedQuality: PlaybackQuality | null;
+  playbackRate: number;
   error: PlaybackError | null;
   recoveryAttempt: number;
 
@@ -49,6 +50,7 @@ export interface PlayerStoreState {
   setPaused: (isPaused: boolean) => void;
   setVolume: (volume: number, isMuted?: boolean) => void;
   setMuted: (isMuted: boolean) => void;
+  setPlaybackRate: (playbackRate: number) => void;
   setAudioDelayMs: (audioDelayMs: number) => void;
   setSubtitleDelayMs: (subtitleDelayMs: number) => void;
   setActiveAudioIndex: (index: number | null) => void;
@@ -73,6 +75,7 @@ const initialState = {
   isPaused: true,
   isMuted: false,
   volume: 1,
+  playbackRate: 1.0,
   audioDelayMs: 0,
   subtitleDelayMs: 0,
   activeAudioIndex: null,
@@ -137,6 +140,8 @@ export const usePlayerStore = create<PlayerStoreState>((set, get) => ({
     }),
 
   setMuted: (isMuted) => set({ isMuted }),
+
+  setPlaybackRate: (playbackRate) => set({ playbackRate }),
 
   setAudioDelayMs: (audioDelayMs) => set({ audioDelayMs }),
 

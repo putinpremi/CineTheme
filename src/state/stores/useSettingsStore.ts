@@ -12,7 +12,7 @@ export interface UserSettings {
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
-  preferredAudioLanguage: 'jpn',
+  preferredAudioLanguage: 'auto',
   preferredSubtitleLanguage: 'eng',
   subtitleFontScale: 1.0,
   subtitleBackgroundOpacity: 0.0,

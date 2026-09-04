@@ -229,7 +229,8 @@ export class PlayerController {
             }
           },
         },
-        startTimeSeconds
+        startTimeSeconds,
+        this.config?.token
       );
     }
 
@@ -356,6 +357,12 @@ export class PlayerController {
     usePlayerStore.getState().setSubtitleDelayMs(clamped);
     this.jassubEngine.setTimeOffset(clamped / 1000);
     this.webVttEngine.setTimeOffset(clamped / 1000);
+  }
+
+  public setPlaybackSpeed(rate: number): void {
+    const clamped = Math.max(0.25, Math.min(3.0, rate));
+    usePlayerStore.getState().setPlaybackRate(clamped);
+    this.videoEngine.setPlaybackRate(clamped);
   }
 
   public async setQuality(quality: PlaybackQuality | null): Promise<void> {

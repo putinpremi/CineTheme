@@ -82,6 +82,15 @@ export class VideoEngine {
     this.video.muted = muted;
   }
 
+  public setPlaybackRate(rate: number): void {
+    if (!this.video) return;
+    this.video.playbackRate = Math.max(0.25, Math.min(3.0, rate));
+  }
+
+  public getPlaybackRate(): number {
+    return this.video?.playbackRate ?? 1.0;
+  }
+
   public getCurrentTime(): number {
     return this.video?.currentTime ?? 0;
   }
